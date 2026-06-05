@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="São Miguel — Soluções industriais de precisão. Engenharia de alto desempenho." />
+    <title>São Miguel — Engenharia de Precisão</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bruno+Ace+SC&family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="./assets/index-DKrtRwbi.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BV8N617s.css">
+  </head>
+  <body>
+
+    <!-- ── Interactive Mesh Background ────────────────────────────── -->
+    <div id="interactive-mesh"></div>
+
+    <!-- ── Loading Screen ─────────────────────────────────────────── -->
+    <div id="loader">
+      <div class="loader-inner">
+        <div class="soundwave-container">
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+          <div class="soundwave-bar"></div>
+        </div>
+        <div class="loader-progress-track">
+          <div class="loader-progress-fill" id="loader-fill"></div>
+        </div>
+        <div class="loader-number" id="loader-number">0</div>
+      </div>
+    </div>
+
+    <!-- ── 3D Canvas ──────────────────────────────────────────────── -->
+    <canvas id="app-canvas"></canvas>
+
+    <!-- ── Vignette Blur Overlay (edge distortion) ────────────────── -->
+    <div class="vignette-blur"></div>
+    <div class="vignette-shadow"></div>
+
+
+
+    <!-- ── Animated Dashed Lines ────────────────────────────────────── -->
+    <div class="dashed-line dashed-line-top"></div>
+    <div class="dashed-line dashed-line-bottom"></div>
+
+    <!-- ── Content Container ────────────────────────────────────────── -->
+    <div id="content-container">
+      <!-- ── Hero Section (Primeira Dobra) ──────────────────────────── -->
+      <div id="hero-section">
+        <div class="hero-top-text" id="hero-top"><span class="top-text-city">GRAMADO</span> & <span class="top-text-city">CANELA</span></div>
+        
+        <div class="hero-center-block">
+          <div class="hero-title-container">
+            <h1 class="hero-h1" id="hero-title">ENGENHARIA<br>CONSTRUÇÃO</h1>
+            <div class="hero-ampersand" id="hero-amp">&</div>
+            <canvas id="hero-canvas-particles"></canvas>
+          </div>
+          <h2 class="hero-h2" id="hero-subtitle">Serviços de engenharia integrando projeto, planejamento e gerenciamento de obras, engenharia estrutural e PPCI, da viabilidade técnica à entrega, com inovação, sustentabilidade, transparência e total conformidade às normas.</h2>
+        </div>
+
+        <!-- ── Scroll Indicator ───────────────────────────────────────── -->
+        <div id="scroll-indicator">
+          <div class="scroll-line"></div>
+          <span class="scroll-text">Scroll</span>
+        </div>
+      </div>
+
+      <!-- ── Segunda Dobra (Placeholder) ────────────────────────────── -->
+      <div id="second-fold">
+        <!-- Espaço para o conteúdo da segunda dobra -->
+      </div>
+    </div>
+
+    <!-- ── Info Panels (columns) ─────────────────────────────────── -->
+    <div id="info-panels">
+      <!-- Coluna da Esquerda (quando a engrenagem está na direita) -->
+      <div class="panels-column left-side">
+        <div class="info-panel" data-panel="2">
+          <span class="info-label">03</span>
+          <h2>Materiais Avançados</h2>
+          <p>Utilizamos ligas metálicas e revestimentos de última geração para garantir resistência e longevidade em cada projeto.</p>
+        </div>
+        <div class="info-panel" data-panel="3">
+          <span class="info-label">04</span>
+          <h2>Inovação Contínua</h2>
+          <p>Nosso compromisso com pesquisa e desenvolvimento nos mantém na vanguarda da engenharia industrial moderna.</p>
+        </div>
+      </div>
+
+      <!-- Coluna da Direita (quando a engrenagem está na esquerda) -->
+      <div class="panels-column right-side">
+        <div class="info-panel" data-panel="1">
+          <span class="info-label">02</span>
+          <h2>Design Industrial</h2>
+          <p>Cada componente é desenhado com foco em eficiência mecânica, otimizando fluxos de produção e reduzindo desperdícios.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GUI Panel ──────────────────────────────────────────────── -->
+    <div id="gui-panel">
+      <div id="gui-drag-handle" style="padding: 5px; text-align: center; cursor: grab; background: rgba(0,0,0,0.5); color: #888; font-size: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.1);">≡ Arrastar</div>
+      <div id="gui-toggle" class="gui-toggle-btn">⚙️ Ajustes 3D</div>
+      <div id="gui-content" class="gui-hidden">
+        
+        <!-- View Mode Toggle -->
+        <div class="gui-view-toggle">
+          <button id="gui-mode-desktop" class="gui-mode-btn active">🖥️ Desktop</button>
+          <button id="gui-mode-mobile" class="gui-mode-btn">📱 Mobile</button>
+        </div>
+
+        <div class="gui-section">
+        <h3>Ajustes 3D</h3>
+        <span class="gui-subtitle">Shaders, Luzes & Eixos</span>
+      </div>
+      <div class="gui-content">
+        <!-- Text Spacing settings -->
+        <div class="gui-section">
+          <div class="gui-section-title">Textos (Tamanho & Espaçamento)</div>
+          <div class="gui-row">
+            <label for="val-font-top">Tam. Topo (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-font-top" min="0.2" max="2" step="0.05" value="0.55" />
+              <span class="gui-val-display" id="disp-font-top">0.55</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-font-h1">Tam. H1 (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-font-h1" min="1" max="10" step="0.1" value="5.5" />
+              <span class="gui-val-display" id="disp-font-h1">5.50</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-font-h2">Tam. H2 (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-font-h2" min="0.3" max="2" step="0.05" value="0.7" />
+              <span class="gui-val-display" id="disp-font-h2">0.70</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-pad-top">Padding Topo (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-pad-top" min="2" max="15" step="0.5" value="6.5" />
+              <span class="gui-val-display" id="disp-pad-top">6.50</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-mar-top-text">Top -> Gramado (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-mar-top-text" min="-10" max="15" step="0.5" value="0" />
+              <span class="gui-val-display" id="disp-mar-top-text">0.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-mar-top">Top -> Título (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-mar-top" min="0" max="10" step="0.5" value="1" />
+              <span class="gui-val-display" id="disp-mar-top">1.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-mar-scroll-top">Top -> Scroll (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-mar-scroll-top" min="-10" max="25" step="0.5" value="3" />
+              <span class="gui-val-display" id="disp-mar-scroll-top">3.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-mar-scroll-bot">Bottom -> Scroll (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-mar-scroll-bot" min="-10" max="25" step="0.5" value="0" />
+              <span class="gui-val-display" id="disp-mar-scroll-bot">0.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-lh">Entrelinha Título</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-lh" min="0.5" max="2" step="0.05" value="1.2" />
+              <span class="gui-val-display" id="disp-lh">1.20</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-mar-sub">Título -> Sub (rem)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-mar-sub" min="0" max="8" step="0.2" value="1.4" />
+              <span class="gui-val-display" id="disp-mar-sub">1.40</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-sub-width">Largura Subtítulo (ch)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-sub-width" min="20" max="120" step="1" value="63" />
+              <span class="gui-val-display" id="disp-sub-width">63</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Material Settings -->
+        <div class="gui-section">
+          <div class="gui-section-title">Material (Shader)</div>
+          <div class="gui-row">
+            <label for="val-metalness">Metalizado</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-metalness" min="0" max="1" step="0.05" value="1.0" />
+              <span class="gui-val-display" id="disp-metalness">1.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-roughness">Rugosidade</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-roughness" min="0" max="1" step="0.05" value="0.2" />
+              <span class="gui-val-display" id="disp-roughness">0.20</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-color">Cor da Logo</label>
+            <input type="color" id="val-color" value="#001e57" />
+          </div>
+          <div class="gui-row">
+            <label for="val-emissive">Cor Auto-Brilho</label>
+            <input type="color" id="val-emissive" value="#000000" />
+          </div>
+          <div class="gui-row">
+            <label for="val-normal">Escala Normal</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-normal" min="0" max="2" step="0.1" value="2.0" />
+              <span class="gui-val-display" id="disp-normal">2.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-clearcoat">Verniz (Clearcoat)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-clearcoat" min="0" max="1" step="0.05" value="1.0" />
+              <span class="gui-val-display" id="disp-clearcoat">1.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-clearcoat-rough">Rugo. Verniz</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-clearcoat-rough" min="0" max="1" step="0.05" value="0.0" />
+              <span class="gui-val-display" id="disp-clearcoat-rough">0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lighting Settings -->
+        <div class="gui-section">
+          <div class="gui-section-title">Iluminação & Sombras</div>
+          <div class="gui-row">
+            <label for="val-exposure">Exposição (HDR)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-exposure" min="0.1" max="3" step="0.1" value="1.2" />
+              <span class="gui-val-display" id="disp-exposure">1.20</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-keylight">Luz Direcional (Intens.)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-keylight" min="0" max="4" step="0.1" value="1.5" />
+              <span class="gui-val-display" id="disp-keylight">1.50</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-keylight-color">Cor Luz Direcional</label>
+            <input type="color" id="val-keylight-color" value="#ffffff" />
+          </div>
+          <div class="gui-row">
+            <label for="val-light-x">Luz Pos X</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-light-x" min="-20" max="20" step="0.5" value="-1.5" />
+              <span class="gui-val-display" id="disp-light-x">-1.50</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-light-y">Luz Pos Y</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-light-y" min="0" max="25" step="0.5" value="3.5" />
+              <span class="gui-val-display" id="disp-light-y">3.50</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-light-z">Luz Pos Z</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-light-z" min="-20" max="20" step="0.5" value="6.0" />
+              <span class="gui-val-display" id="disp-light-z">6.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-ambient">Luz Ambiente (Intens.)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-ambient" min="0" max="1" step="0.05" value="0.15" />
+              <span class="gui-val-display" id="disp-ambient">0.15</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-ambient-color">Cor Luz Ambiente</label>
+            <input type="color" id="val-ambient-color" value="#ffffff" />
+          </div>
+          <div class="gui-row">
+            <label for="val-bg-color">Cor de Fundo</label>
+            <input type="color" id="val-bg-color" value="#e0e0e0" />
+          </div>
+          <div class="gui-row">
+            <label for="val-bg-visible">Ativar Fundo 3D (GLB)</label>
+            <input type="checkbox" id="val-bg-visible" checked style="width: 1.5rem; height: 1.5rem; accent-color: #cca43b; cursor: pointer;" />
+          </div>
+          <div class="gui-row">
+            <label for="val-shadow-floor">Sombra Chão Opac.</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-shadow-floor" min="0" max="1" step="0.05" value="0.35" />
+              <span class="gui-val-display" id="disp-shadow-floor">0.35</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-shadow-wall">Sombra Parede Opac.</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-shadow-wall" min="0" max="1" step="0.05" value="0.25" />
+              <span class="gui-val-display" id="disp-shadow-wall">0.25</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-shadow-res">Resolução Sombra</label>
+            <select id="val-shadow-res">
+              <option value="512">512 (Baixa)</option>
+              <option value="1024">1024 (Média)</option>
+              <option value="2048" selected>2048 (Alta)</option>
+              <option value="4096">4096 (Ultra)</option>
+            </select>
+          </div>
+          <div class="gui-row">
+            <label for="val-shadow-blur">Desfoque Sombra (Raio)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-shadow-blur" min="0" max="15" step="0.5" value="3.5" />
+              <span class="gui-val-display" id="disp-shadow-blur">3.50</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-shadow-bias">Shadow Bias</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-shadow-bias" min="-0.005" max="0.001" step="0.0001" value="-0.0026" />
+              <span class="gui-val-display" id="disp-shadow-bias">-0.0026</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-shadow-nbias">Shadow Normal Bias</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-shadow-nbias" min="0" max="0.1" step="0.005" value="0.04" />
+              <span class="gui-val-display" id="disp-shadow-nbias">0.04</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera Settings -->
+        <div class="gui-section">
+          <div class="gui-section-title">Câmera</div>
+          <div class="gui-row">
+            <label for="val-fov">Campo de Visão (FOV)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-fov" min="15" max="75" step="1" value="30" />
+              <span class="gui-val-display" id="disp-fov">30</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-camera-z">Distância (Z)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-camera-z" min="1" max="15" step="0.1" value="3.5" />
+              <span class="gui-val-display" id="disp-camera-z">3.5</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interaction / Axis settings -->
+        <div class="gui-section">
+          <div class="gui-section-title">Interação & Eixo</div>
+          <div class="gui-row">
+            <label for="val-tilt">Inclinação Mouse</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-tilt" min="0" max="0.4" step="0.02" value="0.24" />
+              <span class="gui-val-display" id="disp-tilt">0.24</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-shift-x">Desloc. Direita (X)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-shift-x" min="0" max="3" step="0.05" value="0.9" />
+              <span class="gui-val-display" id="disp-shift-x">0.90</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-shift-y">Desloc. Vertical (Y)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-shift-y" min="-5" max="5" step="0.05" value="-1.65" />
+              <span class="gui-val-display" id="disp-shift-y">-1.65</span>
+            </div>
+          </div>
+          <button id="gui-btn-center-y" class="gui-btn">Centralizar Exatamente na Câmera</button>
+          
+          <div class="gui-row">
+            <label for="val-spin-speed">Velocidade (Scroll)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-spin-speed" min="0" max="20" step="0.5" value="3.0" />
+              <span class="gui-val-display" id="disp-spin-speed">3.00</span>
+            </div>
+          </div>
+          <div class="gui-row">
+            <label for="val-spin-limit">Limite Rotação (Rad/s)</label>
+            <div class="gui-input-group">
+              <input type="range" id="val-spin-limit" min="0.5" max="30" step="0.5" value="15.0" />
+              <span class="gui-val-display" id="disp-spin-limit">15.00</span>
+            </div>
+          </div>
+          
+          <div class="gui-row">
+            <label for="val-axis">Eixo de Giro</label>
+            <select id="val-axis">
+              <option value="-x" selected>-X (Atual)</option>
+              <option value="x">X</option>
+              <option value="y">Y</option>
+              <option value="z">Z</option>
+              <option value="-y">-Y</option>
+              <option value="-z">-Z</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Copy Action Button -->
+        <button id="gui-copy-btn">📋 Copiar Configurações</button>
+      </div>
+    </div>
+
+  </body>
+</html>

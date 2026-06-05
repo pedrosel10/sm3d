@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    # 1. Cria a pasta destino caso não exista
+    - mkdir -p $HOME/public_html/sm3d
+    
+    # 2. Copia os arquivos pré-compilados da pasta 'dist' (agora no Git) para a pasta pública
+    - /bin/cp -R dist/* $HOME/public_html/sm3d/
