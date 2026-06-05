@@ -29,7 +29,8 @@ const renderer = new THREE.WebGLRenderer({
   alpha: true, // Allow HTML background to show
   powerPreference: 'high-performance',
 })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+renderer.setPixelRatio(isMobileDevice ? 1.0 : Math.min(window.devicePixelRatio, 1.5))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
@@ -108,7 +109,7 @@ scene.add(hemiLight)
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.5)
 keyLight.position.set(-1.5, 3.5, 6)
 keyLight.castShadow = true
-keyLight.shadow.mapSize.set(2048, 2048)
+keyLight.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048)
 keyLight.shadow.camera.near = 0.5
 keyLight.shadow.camera.far = 100
 keyLight.shadow.bias = -0.0026
@@ -313,7 +314,7 @@ gltfLoader.load(
         console.log('💡 GLB light:', child.type, child.name)
         if (child.isDirectionalLight || child.isSpotLight) {
           child.castShadow = true
-          child.shadow.mapSize.set(2048, 2048)
+          child.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048)
           child.shadow.bias = -0.0002
           child.shadow.normalBias = 0.02
           child.shadow.radius = 3.0
@@ -475,8 +476,8 @@ gltfLoader.load(
 )
 
 // ── Smooth Scroll ────────────────────────────────────────────────────
-let scrollTarget = 0
-let scrollCurrent = 0
+let scrollTarget = window.scrollY || 0
+let scrollCurrent = window.scrollY || 0
 
 window.addEventListener('scroll', () => {
   scrollTarget = window.scrollY
@@ -789,11 +790,17 @@ async function playHeroAnimations() {
 
   if (!h1 || !topText || !h2) return
 
-  if (!heroParticleText) {
+  let h1Chars = [];
+  if (!heroParticleText && !isMobileDevice) {
     splitTextToChars(h1) // Setup layout spans
     h1.style.opacity = '0' // DOM text is permanently invisible
     heroParticleText = new ParticleText('hero-canvas-particles', 'hero-title')
     await heroParticleText.ready // Wait for font and extraction
+  } else if (isMobileDevice) {
+    h1Chars = splitTextToChars(h1)
+    h1.style.opacity = '1'
+    const canvasEl = document.getElementById('hero-canvas-particles')
+    if (canvasEl) canvasEl.style.display = 'none'
   }
   
   requestAnimationFrame(() => {
@@ -801,9 +808,6 @@ async function playHeroAnimations() {
     
     // reset opacities if looping
     gsap.set([topText, scrollInd, ampersand], { opacity: 0 });
-    
-    // Scatter particles to fly in (REMOVED)
-    // heroParticleText.assemble();
     
     if (heroTimeline) heroTimeline.kill();
     heroTimeline = gsap.timeline()
@@ -814,11 +818,18 @@ async function playHeroAnimations() {
     // Ampersand fades in
     heroTimeline.to(ampersand, { opacity: 1, duration: 1.5, ease: 'power2.out' }, 0.4)
 
-    // H1 letters solid text fades in randomly
-    heroTimeline.to(heroParticleText.chars, 
-      { opacity: 1, duration: 1.0, stagger: { amount: 1.0, from: "random" }, ease: 'power1.inOut' }, 
-      0.4
-    )
+    if (!isMobileDevice && heroParticleText) {
+      // H1 letters solid text fades in randomly
+      heroTimeline.to(heroParticleText.chars, 
+        { opacity: 1, duration: 1.0, stagger: { amount: 1.0, from: "random" }, ease: 'power1.inOut' }, 
+        0.4
+      )
+    } else {
+      heroTimeline.to(h1Chars, 
+        { opacity: 1, duration: 1.0, stagger: { amount: 1.0, from: "random" }, ease: 'power1.inOut' }, 
+        0.4
+      )
+    }
   
     // H2 fades word by word
     heroTimeline.to(h2Words, { opacity: 1, duration: 1.0, stagger: 0.02, ease: 'power2.out' }, 1.2)
