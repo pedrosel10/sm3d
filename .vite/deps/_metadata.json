@@ -2,7 +2,7 @@
   "hash": "4c17076b",
   "configHash": "8fa4a741",
   "lockfileHash": "77137cc0",
-  "browserHash": "10789be5",
+  "browserHash": "dd53ddb1",
   "optimized": {
     "gsap": {
       "src": "../../node_modules/gsap/index.js",
@@ -16,6 +16,12 @@
       "fileHash": "de102dce",
       "needsInterop": false
     },
+    "three/examples/jsm/loaders/DRACOLoader.js": {
+      "src": "../../node_modules/three/examples/jsm/loaders/DRACOLoader.js",
+      "file": "three_examples_jsm_loaders_DRACOLoader__js.js",
+      "fileHash": "1ad8e6bb",
+      "needsInterop": false
+    },
     "three/examples/jsm/loaders/EXRLoader.js": {
       "src": "../../node_modules/three/examples/jsm/loaders/EXRLoader.js",
       "file": "three_examples_jsm_loaders_EXRLoader__js.js",
@@ -26,6 +32,12 @@
       "src": "../../node_modules/three/examples/jsm/loaders/GLTFLoader.js",
       "file": "three_examples_jsm_loaders_GLTFLoader__js.js",
       "fileHash": "f96c5d2b",
+      "needsInterop": false
+    },
+    "three/examples/jsm/loaders/RGBELoader.js": {
+      "src": "../../node_modules/three/examples/jsm/loaders/RGBELoader.js",
+      "file": "three_examples_jsm_loaders_RGBELoader__js.js",
+      "fileHash": "1a6ad1c4",
       "needsInterop": false
     }
   },

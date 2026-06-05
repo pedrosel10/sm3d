@@ -170,6 +170,10 @@ let mixer = null
 
 // Gear position & rotation state
 let gearOriginalX = 0
+let gearOriginalY = 0
+let cachedTextAnchorOffset = 0;
+let cachedVHeight = 0;
+let cachedInnerHeight = window.innerHeight;
 let gearOriginalQuat = new THREE.Quaternion()
 const gearRotationAxis = new THREE.Vector3(-1, 0, 0) // -X axis (confirmed)
 let gearScrollAngle = 0
@@ -179,7 +183,6 @@ let scrollTimeline = null
 const animationState = { gearX: 0.02 } // 0.02 = Left, 0.92 = Right
 const loopHeight = 2600 // Scroll pixels representing max scroll
 
-let gearOriginalY = 0
 
 // Mouse tilt state
 const mouseTiltTarget = { x: 0, y: 0 }
@@ -461,6 +464,7 @@ gltfLoader.load(
     // Signal GLB loaded — loader waits for both GLB + EXR
     glbReady = true
     firstFrames = 30
+    applyResponsiveSettings();
     checkAllLoaded()
   },
   (progress) => {
@@ -879,8 +883,8 @@ function animate() {
   timer.update()
   const delta = timer.getDelta()
 
-  // Smooth scroll interpolation
-  scrollCurrent += (scrollTarget - scrollCurrent) * 0.07
+  // Smooth scroll interpolation (frame-rate independent to avoid jitter)
+  scrollCurrent += (scrollTarget - scrollCurrent) * (1 - Math.exp(-8 * delta))
 
   // Update scroll indicator visibility
   if (Math.abs(scrollCurrent) > 50) {
@@ -940,34 +944,16 @@ function animate() {
     // 4. Update vertical position (follows scroll) and center horizontally
     const targetX = gearOriginalX + GEAR_SHIFT_X
     
-    // Move up based on scroll exactly matching CSS pixel movement
-    // Calculate the visible height in 3D units at the gear's depth
-    const dist = camera.position.z - gearMesh.position.z;
-    const fovRad = camera.fov * Math.PI / 180;
-    const vHeight = 2 * Math.tan(fovRad / 2) * dist;
-    // Map scroll pixels to 3D units
-    const scrollOffset = (scrollCurrent / window.innerHeight) * vHeight;
+    // Map scroll pixels to 3D units using cached values (avoids jitter on mobile resize)
+    const scrollOffset = (scrollCurrent / cachedInnerHeight) * cachedVHeight;
     
-    // Anchor dynamically to the text so it never misaligns on resize
-    let textAnchorOffset = 0;
-    const heroTitle = document.querySelector('.hero-title-container');
-    if (heroTitle) {
-      // absolute distance from the top of the document
-      const absoluteBottom = heroTitle.getBoundingClientRect().bottom + window.scrollY;
-      
-      // Calculate where this pixel is relative to the center of the screen
-      const offsetFromCenterPixels = (window.innerHeight / 2) - absoluteBottom;
-      
-      // Convert to 3D units
-      textAnchorOffset = offsetFromCenterPixels * (vHeight / window.innerHeight);
-    }
-    
-    // The target Y combines the original center, the text anchor, the manual GUI shift, and the scroll
-    const targetY = gearOriginalY + textAnchorOffset + GEAR_SHIFT_Y + scrollOffset
+    // The target Y combines the original center, the cached text anchor, the manual GUI shift, and the scroll
+    const targetY = gearOriginalY + cachedTextAnchorOffset + GEAR_SHIFT_Y + scrollOffset
 
-    // Interpolate gear positions for butter-smooth shifts
-    gearMesh.position.x += (targetX - gearMesh.position.x) * 0.08
-    gearMesh.position.y += (targetY - gearMesh.position.y) * 0.08
+    // Interpolate gear positions for butter-smooth shifts, using delta to make it frame-rate independent
+    const lerpFactor = 1 - Math.exp(-8 * delta);
+    gearMesh.position.x += (targetX - gearMesh.position.x) * lerpFactor
+    gearMesh.position.y += (targetY - gearMesh.position.y) * lerpFactor
 
     // Check if gear actually moved (rotation, tilt or position changed)
     const posDiff = Math.abs(gearMesh.position.x - targetX)
@@ -1030,6 +1016,20 @@ function applyResponsiveSettings() {
   const aspect = window.innerWidth / window.innerHeight;
   camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / aspect) ) * 360 / Math.PI;
   camera.updateProjectionMatrix();
+
+  cachedInnerHeight = window.innerHeight;
+  if (typeof gearMesh !== 'undefined' && gearMesh) {
+    const dist = camera.position.z - gearMesh.position.z;
+    const fovRad = camera.fov * Math.PI / 180;
+    cachedVHeight = 2 * Math.tan(fovRad / 2) * dist;
+    
+    const heroTitle = document.querySelector('.hero-title-container');
+    if (heroTitle) {
+      const absoluteBottom = heroTitle.getBoundingClientRect().bottom + window.scrollY;
+      const offsetFromCenterPixels = (cachedInnerHeight / 2) - absoluteBottom;
+      cachedTextAnchorOffset = offsetFromCenterPixels * (cachedVHeight / cachedInnerHeight);
+    }
+  }
 
   if (typeof heroParticleText !== 'undefined' && heroParticleText) {
     heroParticleText.setup(true);
@@ -1139,14 +1139,14 @@ applyGlitchHoverEffect([
 // ── Image Trail Effect ───────────────────────────────────────────────
 function setupImageTrail() {
   const images = [
-    './imagens%20cursor/01_1x.webp',
-    './imagens%20cursor/02_1x.webp',
-    './imagens%20cursor/03_1x.webp',
-    './imagens%20cursor/04_1x.webp',
-    './imagens%20cursor/05_1x.webp',
-    './imagens%20cursor/06_1x.webp',
-    './imagens%20cursor/07_1x.webp',
-    './imagens%20cursor/08_1x.webp'
+    './imagens_cursor/01_1x.webp',
+    './imagens_cursor/02_1x.webp',
+    './imagens_cursor/03_1x.webp',
+    './imagens_cursor/04_1x.webp',
+    './imagens_cursor/05_1x.webp',
+    './imagens_cursor/06_1x.webp',
+    './imagens_cursor/07_1x.webp',
+    './imagens_cursor/08_1x.webp'
   ];
 
   let lastSpawn = { x: -9999, y: -9999 };
