@@ -2,7 +2,37 @@
   "hash": "4c17076b",
   "configHash": "8fa4a741",
   "lockfileHash": "77137cc0",
-  "browserHash": "b10c791d",
-  "optimized": {},
-  "chunks": {}
+  "browserHash": "10789be5",
+  "optimized": {
+    "gsap": {
+      "src": "../../node_modules/gsap/index.js",
+      "file": "gsap.js",
+      "fileHash": "0f1f3b56",
+      "needsInterop": false
+    },
+    "three": {
+      "src": "../../node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "de102dce",
+      "needsInterop": false
+    },
+    "three/examples/jsm/loaders/EXRLoader.js": {
+      "src": "../../node_modules/three/examples/jsm/loaders/EXRLoader.js",
+      "file": "three_examples_jsm_loaders_EXRLoader__js.js",
+      "fileHash": "375edfb6",
+      "needsInterop": false
+    },
+    "three/examples/jsm/loaders/GLTFLoader.js": {
+      "src": "../../node_modules/three/examples/jsm/loaders/GLTFLoader.js",
+      "file": "three_examples_jsm_loaders_GLTFLoader__js.js",
+      "fileHash": "f96c5d2b",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "three.module-Dhi4sXJn": {
+      "file": "three.module-Dhi4sXJn.js",
+      "isDynamicEntry": false
+    }
+  }
 }

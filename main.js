@@ -5,7 +5,8 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { gsap } from 'gsap'
 
 // ── GLOBAL SIZING HELPERS ────────────────────────────────────────────
@@ -61,8 +62,8 @@ function checkAllLoaded() {
   }
 }
 
-const exrLoader = new EXRLoader()
-exrLoader.load('./ferndale_studio_01_4k.exr', (texture) => {
+const rgbeLoader = new RGBELoader()
+rgbeLoader.load('./ferndale_studio_01_1k.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping
 
   const envMap = pmrem.fromEquirectangular(texture).texture
@@ -73,7 +74,7 @@ exrLoader.load('./ferndale_studio_01_4k.exr', (texture) => {
   texture.dispose()
   pmrem.dispose()
 
-  console.log('🌍 EXR Environment Map loaded: ferndale_studio_01_4k')
+  console.log('🌍 HDR Environment Map loaded: ferndale_studio_01_1k.hdr')
   exrReady = true
   checkAllLoaded()
 })
@@ -276,7 +277,11 @@ function applyMaterialSettings(mat) {
   }
 }
 
+const dracoLoader = new DRACOLoader()
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/')
+
 const gltfLoader = new GLTFLoader()
+gltfLoader.setDRACOLoader(dracoLoader)
 
 gltfLoader.load(
   './smlogo3d.glb',
