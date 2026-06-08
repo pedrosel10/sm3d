@@ -205,6 +205,29 @@ window.addEventListener('mousemove', (e) => {
   document.body.style.setProperty('--mouse-y', `${e.clientY}px`)
 })
 
+// ── Mobile Background Simulated Cursor ─────────────────────────────────
+let simMouseX = window.innerWidth / 2;
+let simMouseY = window.innerHeight / 2;
+let simMouseTargetX = simMouseX;
+let simMouseTargetY = simMouseY;
+
+function animateMobileSimMouse() {
+  requestAnimationFrame(animateMobileSimMouse);
+  if (window.innerWidth >= 768) return;
+  
+  if (Math.random() < 0.03) {
+    simMouseTargetX = Math.random() * window.innerWidth;
+    simMouseTargetY = Math.random() * window.innerHeight;
+  }
+  
+  simMouseX += (simMouseTargetX - simMouseX) * 0.02;
+  simMouseY += (simMouseTargetY - simMouseY) * 0.02;
+  
+  document.body.style.setProperty('--mouse-x', `${simMouseX}px`);
+  document.body.style.setProperty('--mouse-y', `${simMouseY}px`);
+}
+animateMobileSimMouse();
+
 // ── Textures Loading ──────────────────────────────────────────────────
 const textureLoader = new THREE.TextureLoader()
 
@@ -307,6 +330,17 @@ gltfLoader.load(
       camera.aspect = window.innerWidth / window.innerHeight
       camera.updateProjectionMatrix()
       console.log('📷 Using camera from GLB:', glbCam.name)
+      
+      // Re-apply GUI overrides for FOV and Z distance if they exist, to respect mobile vs desktop
+      if (typeof activeGUIState !== 'undefined' && typeof guiSettings !== 'undefined') {
+        const s = guiSettings[activeGUIState];
+        if (s && s['val-camera-z'] !== undefined) {
+          camera.position.z = s['val-camera-z'];
+          baseFov = s['val-fov'];
+          camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / camera.aspect) ) * 360 / Math.PI;
+          camera.updateProjectionMatrix();
+        }
+      }
     }
 
     // ── Extract lights from the model ────────────────────────────
@@ -464,7 +498,7 @@ gltfLoader.load(
     // Signal GLB loaded — loader waits for both GLB + EXR
     glbReady = true
     firstFrames = 30
-    applyResponsiveSettings();
+    updateResponsiveCache();
     checkAllLoaded()
   },
   (progress) => {
@@ -714,16 +748,33 @@ class ParticleText {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i]
       
-      const dx = this.mouse.x - p.x
-      const dy = this.mouse.y - p.y
-      const dist = Math.sqrt(dx * dx + dy * dy)
+      const isMobile = window.innerWidth < 768;
       
-      if (dist < this.mouse.radius) {
-        const force = (this.mouse.radius - dist) / this.mouse.radius
-        const angle = Math.atan2(dy, dx)
-        p.vx -= Math.cos(angle) * force * 5
-        p.vy -= Math.sin(angle) * force * 5
-        p.active = true
+      if (isMobile) {
+        // Start dissolving when the pixel gets within 120px of the top edge of the screen
+        const scrollThreshold = 120;
+        const globalParticleY = rect.top + (p.originY / this.dpr);
+        
+        if (globalParticleY < scrollThreshold) {
+          const penetration = scrollThreshold - globalParticleY;
+          p.active = true;
+          // Upward force + horizontal spread (adjusted scale to account for DPR physics)
+          p.vy -= (penetration * 0.1 + Math.random() * 0.5) * this.dpr;
+          const spreadDir = (p.originX > (rect.width * this.dpr) / 2) ? 1 : -1;
+          p.vx += (spreadDir * penetration * 0.05 + (Math.random() - 0.5) * 1.5) * this.dpr;
+        }
+      } else {
+        const dx = this.mouse.x - p.x
+        const dy = this.mouse.y - p.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        
+        if (dist < this.mouse.radius) {
+          const force = (this.mouse.radius - dist) / this.mouse.radius
+          const angle = Math.atan2(dy, dx)
+          p.vx -= Math.cos(angle) * force * 5
+          p.vy -= Math.sin(angle) * force * 5
+          p.active = true
+        }
       }
       
       if (p.active) {
@@ -951,7 +1002,8 @@ function animate() {
     const targetY = gearOriginalY + cachedTextAnchorOffset + GEAR_SHIFT_Y + scrollOffset
 
     // Interpolate gear positions for butter-smooth shifts, using delta to make it frame-rate independent
-    const lerpFactor = 1 - Math.exp(-8 * delta);
+    const isMobile = window.innerWidth < 768;
+    const lerpFactor = isMobile ? 1.0 : (1 - Math.exp(-8 * delta));
     gearMesh.position.x += (targetX - gearMesh.position.x) * lerpFactor
     gearMesh.position.y += (targetY - gearMesh.position.y) * lerpFactor
 
@@ -984,45 +1036,14 @@ function animate() {
 animate()
 
 
-// ── Responsive Mobile Overrides (formerly GUI) ──────────────────────
-function applyResponsiveSettings() {
-  const isMobile = window.innerWidth < 768;
-  if (isMobile) {
-    baseFov = 21;
-    camera.position.z = 3.4;
-    GEAR_SHIFT_Y = -2.15;
-    document.documentElement.style.setProperty('--hero-font-h1', '3.3rem');
-    document.documentElement.style.setProperty('--hero-padding-top', '5.5rem');
-    document.documentElement.style.setProperty('--hero-top-mt', '2rem');
-    document.documentElement.style.setProperty('--hero-top-margin', '2rem');
-    document.documentElement.style.setProperty('--hero-title-lh', '1.25');
-    document.documentElement.style.setProperty('--hero-subtitle-width', '58ch');
-    document.documentElement.style.setProperty('--scroll-mt', '4.5rem');
-    document.documentElement.style.setProperty('--scroll-mb', '9.5rem');
-  } else {
-    baseFov = 30;
-    camera.position.z = 3.5;
-    GEAR_SHIFT_Y = -1.65;
-    document.documentElement.style.setProperty('--hero-font-h1', '5.5rem');
-    document.documentElement.style.setProperty('--hero-padding-top', '6.5rem');
-    document.documentElement.style.setProperty('--hero-top-mt', '0rem');
-    document.documentElement.style.setProperty('--hero-top-margin', '1rem');
-    document.documentElement.style.setProperty('--hero-title-lh', '1.2');
-    document.documentElement.style.setProperty('--hero-subtitle-width', '63ch');
-    document.documentElement.style.setProperty('--scroll-mt', '3rem');
-    document.documentElement.style.setProperty('--scroll-mb', '0rem');
-  }
-  
-  const aspect = window.innerWidth / window.innerHeight;
-  camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / aspect) ) * 360 / Math.PI;
-  camera.updateProjectionMatrix();
-
+// ── Responsive Cache ──────────────────────
+function updateResponsiveCache() {
   cachedInnerHeight = window.innerHeight;
   if (typeof gearMesh !== 'undefined' && gearMesh) {
     const dist = camera.position.z - gearMesh.position.z;
     const fovRad = camera.fov * Math.PI / 180;
     cachedVHeight = 2 * Math.tan(fovRad / 2) * dist;
-    
+
     const heroTitle = document.querySelector('.hero-title-container');
     if (heroTitle) {
       const absoluteBottom = heroTitle.getBoundingClientRect().bottom + window.scrollY;
@@ -1036,8 +1057,418 @@ function applyResponsiveSettings() {
   }
 }
 
-window.addEventListener('resize', applyResponsiveSettings);
-applyResponsiveSettings();
+window.addEventListener('resize', updateResponsiveCache);
+updateResponsiveCache();
+
+// ── GUI Control Panel Logic ──────────────────────────────────────────
+function setupGUI() {
+  const guiToggle = document.getElementById('gui-toggle')
+  const guiPanel = document.getElementById('gui-panel')
+  if (guiToggle && guiPanel) {
+    guiToggle.addEventListener('click', () => {
+      guiPanel.classList.toggle('gui-collapsed')
+    })
+  }
+
+  // --- DUAL STATE SYSTEM ---
+  window.guiInputsRegistry = [];
+  function getScreenMode() { 
+     return window.innerWidth < 768 ? 'mobile' : 'desktop'; 
+  }
+  window.activeGUIState = getScreenMode();
+  window.guiSettings = { desktop: {}, mobile: {} };
+
+  function updateModeButtons() {
+    const dBtn = document.getElementById('gui-mode-desktop');
+    const mBtn = document.getElementById('gui-mode-mobile');
+    if(dBtn && mBtn) {
+      if(activeGUIState === 'desktop') { dBtn.classList.add('active'); mBtn.classList.remove('active'); }
+      else { mBtn.classList.add('active'); dBtn.classList.remove('active'); }
+    }
+  }
+
+  const dBtn = document.getElementById('gui-mode-desktop');
+  const mBtn = document.getElementById('gui-mode-mobile');
+  if(dBtn) dBtn.addEventListener('click', () => { 
+     activeGUIState = 'desktop'; 
+          updateModeButtons(); 
+     applySettingsState(guiSettings.desktop); 
+     
+  });
+  if(mBtn) mBtn.addEventListener('click', () => { 
+     activeGUIState = 'mobile'; 
+          updateModeButtons(); 
+     applySettingsState(guiSettings.mobile); 
+     
+  });
+
+  function applySettingsState(s) {
+    guiInputsRegistry.forEach(item => {
+       const el = document.getElementById(item.id);
+       const disp = item.dispId ? document.getElementById(item.dispId) : null;
+       if (el && s[item.id] !== undefined) {
+          if (item.type === 'checkbox') el.checked = s[item.id];
+          else el.value = s[item.id];
+          if (disp && item.format) disp.innerText = item.format(s[item.id]);
+          item.callback(s[item.id]);
+       }
+    });
+  }
+
+  window.addEventListener('resize', () => {
+     const screenMode = getScreenMode();
+     if (window._lastScreenMode !== screenMode) {
+       window._lastScreenMode = screenMode;
+       // Switch actual visual state AND gui toggle automatically
+       activeGUIState = screenMode;
+       updateModeButtons();
+       applySettingsState(guiSettings[screenMode]);
+     }
+  });
+  window._lastScreenMode = getScreenMode();
+
+  function registerInput(id, dispId, type, callback, format) {
+    guiInputsRegistry.push({ id, dispId, callback, format, type });
+  }
+
+  function handleInputEvent(id, dispId, type, e, callback, format) {
+    let val = type === 'checkbox' ? e.target.checked : (type === 'number' || type === 'range' ? Number(e.target.value) : e.target.value);
+    if (dispId) {
+      const disp = document.getElementById(dispId);
+      if (disp && format) disp.innerText = format(val);
+    }
+    guiSettings[activeGUIState][id] = val;
+    if (activeGUIState === getScreenMode()) {
+      callback(val);
+    }
+  }
+
+  function bindRange(id, dispId, callback, format = (v) => v.toFixed(2)) {
+    registerInput(id, dispId, 'range', callback, format);
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (e) => handleInputEvent(id, dispId, 'range', e, callback, format));
+  }
+
+  function bindColor(id, callback) {
+    registerInput(id, null, 'color', callback, null);
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (e) => handleInputEvent(id, null, 'color', e, callback, null));
+  }
+
+  function bindCheckbox(id, callback) {
+    registerInput(id, null, 'checkbox', callback, null);
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', (e) => handleInputEvent(id, null, 'checkbox', e, callback, null));
+  }
+
+  function bindSelect(id, callback) {
+    registerInput(id, null, 'select', callback, null);
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', (e) => handleInputEvent(id, null, 'select', e, callback, null));
+  }
+
+  function bindCssVarSlider(id, dispId, cssVar, suffix = '') {
+    const updateText = (val) => {
+      document.documentElement.style.setProperty(cssVar, `${val}${suffix}`);
+      if (typeof heroParticleText !== 'undefined' && heroParticleText) {
+        heroParticleText.setup(true);
+      }
+    };
+    registerInput(id, dispId, 'range', updateText, (v) => v.toFixed(2));
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (e) => handleInputEvent(id, dispId, 'range', e, updateText, (v) => v.toFixed(2)));
+  }
+
+  // --- MATERIAL SETTINGS ---
+  bindRange('val-metalness', 'disp-metalness', (val) => { logoMaterials.forEach(mat => mat.metalness = val); })
+  bindRange('val-roughness', 'disp-roughness', (val) => { logoMaterials.forEach(mat => mat.roughness = val); })
+  
+  bindColor('val-color', (val) => { logoMaterials.forEach(mat => mat.color.set(val)); });
+  bindColor('val-emissive', (val) => { logoMaterials.forEach(mat => { if(mat.emissive) mat.emissive.set(val); }); });
+  
+  bindRange('val-normal', 'disp-normal', (val) => { logoMaterials.forEach(mat => { if(mat.normalScale) mat.normalScale.set(val, val); }); })
+  bindRange('val-clearcoat', 'disp-clearcoat', (val) => { logoMaterials.forEach(mat => mat.clearcoat = val); })
+  bindRange('val-clearcoat-rough', 'disp-clearcoat-rough', (val) => { logoMaterials.forEach(mat => mat.clearcoatRoughness = val); })
+
+  // --- LIGHTING SETTINGS ---
+  bindRange('val-exposure', 'disp-exposure', (val) => { renderer.toneMappingExposure = val; })
+  bindRange('val-keylight', 'disp-keylight', (val) => { keyLight.intensity = val; })
+  bindColor('val-keylight-color', (val) => { keyLight.color.set(val) });
+  bindRange('val-light-x', 'disp-light-x', (val) => { keyLight.position.x = val; })
+  bindRange('val-light-y', 'disp-light-y', (val) => { keyLight.position.y = val; })
+  bindRange('val-light-z', 'disp-light-z', (val) => { keyLight.position.z = val; })
+  bindRange('val-ambient', 'disp-ambient', (val) => { if (activeAmbientLight) activeAmbientLight.intensity = val; })
+  bindColor('val-ambient-color', (val) => { if (activeAmbientLight) activeAmbientLight.color.set(val) });
+
+  bindColor('val-bg-color', (val) => {
+    document.documentElement.style.setProperty('--color-bg', val);
+  });
+
+  bindCheckbox('val-bg-visible', (val) => { if (backgroundMesh) backgroundMesh.visible = val });
+
+  bindRange('val-shadow-floor', 'disp-shadow-floor', (val) => { if (shadowFloorMat) { shadowFloorMat.opacity = val; shadowFloorMat.needsUpdate = true; } })
+  bindRange('val-shadow-wall', 'disp-shadow-wall', (val) => { if (shadowWallMat) { shadowWallMat.opacity = val; shadowWallMat.needsUpdate = true; } })
+
+  const resSelect = document.getElementById('val-shadow-res')
+  if (resSelect && keyLight.shadow.mapSize) resSelect.value = keyLight.shadow.mapSize.x
+  bindSelect('val-shadow-res', (val) => {
+    activeDirectionalLights.forEach(light => {
+      light.shadow.mapSize.set(Number(val), Number(val))
+      if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
+    })
+  });
+
+  bindRange('val-shadow-blur', 'disp-shadow-blur', (val) => { activeDirectionalLights.forEach(light => light.shadow.radius = val); })
+  bindRange('val-shadow-bias', 'disp-shadow-bias', (val) => { activeDirectionalLights.forEach(light => light.shadow.bias = val); }, (v) => v.toFixed(4))
+  bindRange('val-shadow-nbias', 'disp-shadow-nbias', (val) => { activeDirectionalLights.forEach(light => light.shadow.normalBias = val); })
+
+  // --- CAMERA SETTINGS ---
+  bindRange('val-fov', 'disp-fov', (val) => {
+    baseFov = val;
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / aspect) ) * 360 / Math.PI;
+    camera.updateProjectionMatrix();
+  }, (v) => v.toFixed(0))
+
+  bindRange('val-camera-z', 'disp-camera-z', (val) => { camera.position.z = val; })
+
+  // --- INTERACTION ---
+  bindRange('val-tilt', 'disp-tilt', (val) => { TILT_STRENGTH = val; })
+  bindRange('val-shift-x', 'disp-shift-x', (val) => { GEAR_SHIFT_X = val; })
+  bindRange('val-shift-y', 'disp-shift-y', (val) => { GEAR_SHIFT_Y = val; })
+
+  const centerBtn = document.getElementById('gui-btn-center-y')
+  if (centerBtn) {
+    centerBtn.addEventListener('click', () => {
+      GEAR_SHIFT_Y = 0;
+      guiSettings[activeGUIState]['val-shift-y'] = 0;
+      applySettingsState(guiSettings[activeGUIState]);
+    })
+  }
+
+  bindRange('val-spin-speed', 'disp-spin-speed', (val) => { SPIN_SPEED = val; })
+  bindRange('val-spin-limit', 'disp-spin-limit', (val) => { SPIN_LIMIT = val; })
+
+  bindSelect('val-axis', (val) => {
+      if (val === 'x') gearRotationAxis.set(1, 0, 0)
+      else if (val === '-x') gearRotationAxis.set(-1, 0, 0)
+      else if (val === 'y') gearRotationAxis.set(0, 1, 0)
+      else if (val === '-y') gearRotationAxis.set(0, -1, 0)
+      else if (val === 'z') gearRotationAxis.set(0, 0, 1)
+      else if (val === '-z') gearRotationAxis.set(0, 0, -1)
+  });
+
+  // --- TEXT SPACING ---
+  bindCssVarSlider('val-font-top', 'disp-font-top', '--hero-font-top', 'rem');
+  bindCssVarSlider('val-font-h1', 'disp-font-h1', '--hero-font-h1', 'rem');
+  bindCssVarSlider('val-font-h2', 'disp-font-h2', '--hero-font-h2', 'rem');
+  bindCssVarSlider('val-pad-top', 'disp-pad-top', '--hero-padding-top', 'rem');
+  bindCssVarSlider('val-mar-top-text', 'disp-mar-top-text', '--hero-top-mt', 'rem');
+  bindCssVarSlider('val-mar-top', 'disp-mar-top', '--hero-top-margin', 'rem');
+  bindCssVarSlider('val-mar-scroll-top', 'disp-mar-scroll-top', '--scroll-mt', 'rem');
+  bindCssVarSlider('val-mar-scroll-bot', 'disp-mar-scroll-bot', '--scroll-mb', 'rem');
+  bindCssVarSlider('val-lh', 'disp-lh', '--hero-title-lh', '');
+  bindCssVarSlider('val-mar-sub', 'disp-mar-sub', '--hero-subtitle-margin', 'rem');
+  bindCssVarSlider('val-sub-width', 'disp-sub-width', '--hero-subtitle-width', 'ch');
+
+  // --- INITIALIZE DUAL STATE ---
+  function extractInitialSettings() {
+    const s = {};
+    guiInputsRegistry.forEach(item => {
+      const el = document.getElementById(item.id);
+      if (el) {
+        if (item.type === 'checkbox') s[item.id] = el.checked;
+        else if (item.type === 'number' || item.type === 'range') s[item.id] = Number(el.value);
+        else s[item.id] = el.value;
+      }
+    });
+    return s;
+  }
+  guiSettings.desktop = extractInitialSettings();
+  
+  // Apply desktop-specific overrides from user JSON
+  Object.assign(guiSettings.desktop, {
+    'val-metalness': 1,
+    'val-roughness': 0.2,
+    'val-color': '#001e57',
+    'val-emissive': '#000000',
+    'val-normal': 2,
+    'val-clearcoat': 1,
+    'val-clearcoat-rough': 0,
+    'val-exposure': 1.2,
+    'val-keylight': 1.5,
+    'val-keylight-color': '#ffffff',
+    'val-light-x': -1.5,
+    'val-light-y': 3.5,
+    'val-light-z': 6,
+    'val-ambient': 0.15,
+    'val-ambient-color': '#ffffff',
+    'val-bg-color': '#e0e0e0',
+    'val-bg-visible': true,
+    'val-shadow-floor': 0.35,
+    'val-shadow-wall': 0.25,
+    'val-shadow-res': '1024',
+    'val-shadow-blur': 3.5,
+    'val-shadow-bias': -0.0026,
+    'val-shadow-nbias': 0.04,
+    'val-fov': 30,
+    'val-camera-z': 3.5,
+    'val-tilt': 0.24,
+    'val-shift-x': 0.9,
+    'val-shift-y': -1.65,
+    'val-spin-speed': 3,
+    'val-spin-limit': 15,
+    'val-axis': '-x',
+    'val-font-top': 0.55,
+    'val-font-h1': 5.5,
+    'val-font-h2': 0.7,
+    'val-pad-top': 6.5,
+    'val-mar-top-text': 0,
+    'val-mar-top': 1,
+    'val-lh': 1.2,
+    'val-mar-sub': 1.4,
+    'val-sub-width': 63,
+    'val-mar-scroll-top': 3,
+    'val-mar-scroll-bot': 0
+  });
+
+  guiSettings.mobile = JSON.parse(JSON.stringify(guiSettings.desktop));
+
+  // Apply mobile-specific overrides from user JSON
+  Object.assign(guiSettings.mobile, {
+    'val-metalness': 1,
+    'val-roughness': 0.2,
+    'val-color': '#001e57',
+    'val-emissive': '#000000',
+    'val-normal': 2,
+    'val-clearcoat': 1,
+    'val-clearcoat-rough': 0,
+    'val-exposure': 1.2,
+    'val-keylight': 1.5,
+    'val-keylight-color': '#ffffff',
+    'val-light-x': 8,
+    'val-light-y': 3.5,
+    'val-light-z': 6,
+    'val-ambient': 0.15,
+    'val-ambient-color': '#ffffff',
+    'val-bg-color': '#e0e0e0',
+    'val-bg-visible': true,
+    'val-shadow-floor': 0.35,
+    'val-shadow-wall': 0.25,
+    'val-shadow-res': '1024',
+    'val-shadow-blur': 3.5,
+    'val-shadow-bias': -0.0026,
+    'val-shadow-nbias': 0.04,
+    'val-fov': 21,
+    'val-camera-z': 3.3,
+    'val-tilt': 0.24,
+    'val-shift-x': 0.9,
+    'val-shift-y': -2.25,
+    'val-spin-speed': 3,
+    'val-spin-limit': 15,
+    'val-axis': '-x',
+    'val-font-top': 0.5,
+    'val-font-h1': 3.3,
+    'val-font-h2': 0.7,
+    'val-pad-top': 5,
+    'val-mar-top-text': 2,
+    'val-mar-top': 1.5,
+    'val-lh': 1.2,
+    'val-mar-sub': 1.4,
+    'val-sub-width': 50,
+    'val-mar-scroll-top': 1.5,
+    'val-mar-scroll-bot': 4
+  });
+
+  updateModeButtons();
+  applySettingsState(guiSettings[getScreenMode()]);
+
+  // --- COPY JSON ---
+  const copyBtn = document.getElementById('gui-copy-btn')
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      function formatSettings(s) {
+        return {
+          metalness: s['val-metalness'], roughness: s['val-roughness'],
+          color: s['val-color'], emissiveColor: s['val-emissive'],
+          normalScale: s['val-normal'], clearcoat: s['val-clearcoat'], clearcoatRoughness: s['val-clearcoat-rough'],
+          exposure: s['val-exposure'], keyLightIntensity: s['val-keylight'], keyLightColor: s['val-keylight-color'],
+          lightX: s['val-light-x'], lightY: s['val-light-y'], lightZ: s['val-light-z'],
+          ambientLightIntensity: s['val-ambient'], ambientLightColor: s['val-ambient-color'],
+          backgroundColor: s['val-bg-color'], background3DVisible: s['val-bg-visible'],
+          shadowFloorOpacity: s['val-shadow-floor'], shadowWallOpacity: s['val-shadow-wall'],
+          shadowResolution: s['val-shadow-res'], shadowBlurRadius: s['val-shadow-blur'],
+          shadowBias: s['val-shadow-bias'], shadowNormalBias: s['val-shadow-nbias'],
+          fov: s['val-fov'], cameraZ: s['val-camera-z'], tiltStrength: s['val-tilt'],
+          gearShiftX: s['val-shift-x'], gearShiftY: s['val-shift-y'],
+          spinSpeed: s['val-spin-speed'], spinLimit: s['val-spin-limit'], axis: s['val-axis'],
+          fontTop: s['val-font-top'], fontH1: s['val-font-h1'], fontH2: s['val-font-h2'],
+          padTop: s['val-pad-top'], marginTopText: s['val-mar-top-text'], marginTop: s['val-mar-top'], titleLh: s['val-lh'],
+          marginSub: s['val-mar-sub'], subWidth: s['val-sub-width'],
+          scrollMt: s['val-mar-scroll-top'], scrollMb: s['val-mar-scroll-bot']
+        };
+      }
+      
+      const dsStr = JSON.stringify(formatSettings(guiSettings.desktop), null, 4).replace(/\n/g, '\n  ');
+      const mbStr = JSON.stringify(formatSettings(guiSettings.mobile), null, 4).replace(/\n/g, '\n  ');
+      const text = `Configurações da Logo 3D:\n\`\`\`json\n{\n  "desktop": ${dsStr},\n  "mobile": ${mbStr}\n}\n\`\`\``;
+      
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.classList.add('copied')
+        copyBtn.textContent = '✓ Copiado!'
+        setTimeout(() => {
+          copyBtn.classList.remove('copied')
+          copyBtn.textContent = '📋 Copiar Configurações'
+        }, 2000)
+      })
+    })
+  }
+
+  // --- DRAGGABLE GUI ---
+  const header = document.getElementById('gui-drag-handle');
+  if (header && guiPanel) {
+    let isDragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    header.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      const rect = guiPanel.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      guiPanel.style.transition = 'none'; // Disable transition while dragging
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      
+      let x = e.clientX - offsetX;
+      let y = e.clientY - offsetY;
+      
+      // Prevent dragging completely off screen
+      x = Math.max(0, Math.min(x, window.innerWidth - guiPanel.offsetWidth));
+      y = Math.max(0, Math.min(y, window.innerHeight - 30));
+      
+      guiPanel.style.left = `${x}px`;
+      guiPanel.style.top = `${y}px`;
+      guiPanel.style.bottom = 'auto'; // Release bottom constraint
+      guiPanel.style.transform = 'none'; // Release Y transform if any
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      guiPanel.style.transition = 'transform 0.3s ease, background 0.3s ease, left 0.3s ease, top 0.3s ease';
+    });
+  }
+
+}
+setupGUI()
+
 
 // ── Text Glitch Hover Effect ─────────────────────────────────────────
 function applyGlitchHoverEffect(elements) {

@@ -858,3 +858,18 @@ select option {
   will-change: transform, opacity;
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE GUI OVERRIDES
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  #gui-panel {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 30vh !important;
+    max-height: 30vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    border-bottom: none !important;
+  }
+}
