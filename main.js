@@ -744,24 +744,31 @@ class ParticleText {
     
     const activeParticles = []
     
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      if (!this.sweepTime) this.sweepTime = 0;
+      this.sweepTime += 0.018; // ~3s por passagem (meio ciclo de seno)
+      
+      // Movimento senoidal indo e vindo, passando por todo o texto
+      this.simSweepX = (Math.sin(this.sweepTime) * 0.5 + 0.5) * (rect.width + 100) - 50;
+      this.simSweepY = rect.height / 2; // Passando pelo meio verticalmente
+    }
+    
     // 2. Physics logic and Activation
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i]
       
-      const isMobile = window.innerWidth < 768;
-      
       if (isMobile) {
-        // Start dissolving when the pixel gets within 120px of the top edge of the screen
-        const scrollThreshold = 120;
-        const globalParticleY = rect.top + (p.originY / this.dpr);
+        const dx = (this.simSweepX * this.dpr) - p.x;
+        const dy = (this.simSweepY * this.dpr) - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
         
-        if (globalParticleY < scrollThreshold) {
-          const penetration = scrollThreshold - globalParticleY;
+        if (dist < 40 * this.dpr) {
+          const force = (40 * this.dpr - dist) / (40 * this.dpr);
+          const angle = Math.atan2(dy, dx);
+          p.vx -= Math.cos(angle) * force * 2 * this.dpr; // Empurrão suave
+          p.vy -= Math.sin(angle) * force * 2 * this.dpr;
           p.active = true;
-          // Upward force + horizontal spread (adjusted scale to account for DPR physics)
-          p.vy -= (penetration * 0.1 + Math.random() * 0.5) * this.dpr;
-          const spreadDir = (p.originX > (rect.width * this.dpr) / 2) ? 1 : -1;
-          p.vx += (spreadDir * penetration * 0.05 + (Math.random() - 0.5) * 1.5) * this.dpr;
         }
       } else {
         const dx = this.mouse.x - p.x
@@ -846,16 +853,15 @@ async function playHeroAnimations() {
   if (!h1 || !topText || !h2) return
 
   let h1Chars = [];
-  if (!heroParticleText && !isMobileDevice) {
+  if (!heroParticleText) {
     splitTextToChars(h1) // Setup layout spans
     h1.style.opacity = '0' // DOM text is permanently invisible
     heroParticleText = new ParticleText('hero-canvas-particles', 'hero-title')
     await heroParticleText.ready // Wait for font and extraction
-  } else if (isMobileDevice) {
-    h1Chars = splitTextToChars(h1)
-    h1.style.opacity = '1'
+    
+    // Ensure canvas is visible even on mobile
     const canvasEl = document.getElementById('hero-canvas-particles')
-    if (canvasEl) canvasEl.style.display = 'none'
+    if (canvasEl) canvasEl.style.display = 'block'
   }
   
   requestAnimationFrame(() => {
@@ -873,14 +879,9 @@ async function playHeroAnimations() {
     // Ampersand fades in
     heroTimeline.to(ampersand, { opacity: 1, duration: 1.5, ease: 'power2.out' }, 0.4)
 
-    if (!isMobileDevice && heroParticleText) {
+    if (heroParticleText) {
       // H1 letters solid text fades in randomly
       heroTimeline.to(heroParticleText.chars, 
-        { opacity: 1, duration: 1.0, stagger: { amount: 1.0, from: "random" }, ease: 'power1.inOut' }, 
-        0.4
-      )
-    } else {
-      heroTimeline.to(h1Chars, 
         { opacity: 1, duration: 1.0, stagger: { amount: 1.0, from: "random" }, ease: 'power1.inOut' }, 
         0.4
       )
