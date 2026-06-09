@@ -983,9 +983,10 @@ function animate() {
   const delta = timer.getDelta()
 
   // Smooth scroll interpolation (frame-rate independent to avoid jitter)
-  // Mobile: skip lerp — iOS already has native momentum scrolling, the lerp only adds delay
+  // Mobile: read scrollY directly every frame (iOS scroll events fire at low Hz, but scrollY updates every frame)
   if (window.innerWidth < 768) {
-    scrollCurrent = scrollTarget;
+    scrollTarget = window.scrollY;
+    scrollCurrent += (scrollTarget - scrollCurrent) * 0.6; // Light smoothing to avoid micro-jitter
   } else {
     scrollCurrent += (scrollTarget - scrollCurrent) * (1 - Math.exp(-8 * delta))
   }
