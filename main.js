@@ -283,6 +283,14 @@ window.addEventListener('click', (e) => {
   checkSignatureHover();
 })
 
+window.addEventListener('touchstart', (e) => {
+  if (e.touches.length > 0) {
+    mouse.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+    checkSignatureHover();
+  }
+}, { passive: true })
+
 // ── Mobile Background Simulated Cursor ─────────────────────────────────
 let simMouseX = window.innerWidth / 2;
 let simMouseY = window.innerHeight / 2;
