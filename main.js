@@ -783,8 +783,8 @@ class ParticleText {
         
         // Movimento senoidal indo e vindo, passando por todo o texto
         this.simSweepX = (Math.sin(this.sweepTime) * 0.5 + 0.5) * (rect.width + 100) - 50;
-        // Oscila o Y levemente para garantir que pegue o topo de ENGENHARIA e o fundo de CONSTRUÇÃO
-        this.simSweepY = rect.height / 2 + Math.cos(this.sweepTime * 1.5) * 50; 
+        // Oscila o Y levemente (reduzido)
+        this.simSweepY = rect.height / 2 + Math.cos(this.sweepTime * 1.5) * 30; 
       } else {
         // Mantém o cursor fora da tela enquanto a animação de entrada roda
         this.simSweepX = -1000;
@@ -801,12 +801,12 @@ class ParticleText {
         const dy = this.simSweepY - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        const sweepRadius = 100; // Raio ampliado para varrer as palavras inteiras
+        const sweepRadius = 75; // Raio reduzido para uma animação menor e mais contida
         if (dist < sweepRadius) {
           const force = (sweepRadius - dist) / sweepRadius;
           const angle = Math.atan2(dy, dx);
-          p.vx -= Math.cos(angle) * force * 5.5; // Empurrão
-          p.vy -= Math.sin(angle) * force * 5.5;
+          p.vx -= Math.cos(angle) * force * 4.0; // Empurrão mais sutil
+          p.vy -= Math.sin(angle) * force * 4.0;
           p.active = true;
         }
       } else {
