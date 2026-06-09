@@ -103,11 +103,18 @@ html, body {
 }
 
 #signature-svg {
-  width: 12.5vw; /* Metade do tamanho anterior */
-  max-width: 125px;
-  min-width: 75px;
+  width: 6.25vw;
+  max-width: 62.5px;
+  min-width: 37.5px;
   height: auto;
   display: block;
+}
+
+@media (max-width: 768px) {
+  #signature-svg {
+    width: 10vw;
+    min-width: 60px;
+  }
 }
 
 .sig-path {

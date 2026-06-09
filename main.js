@@ -1351,6 +1351,24 @@ function animate() {
       // Rotação sutil de inclinação interativa (mouse tilt) de todo o grupo em 3D
       imageGroup.rotation.y = mouseTiltCurrent.x * 0.12;
       imageGroup.rotation.x = -mouseTiltCurrent.y * 0.12;
+
+      // Update the HTML signature overlay so it matches the 3D tilt of the image
+      const sigOverlay = document.getElementById('signature-overlay');
+      if (sigOverlay && (signatureVisible || signatureAnimating)) {
+        if (tZoom < 0.95) {
+          const paths = document.querySelectorAll('.sig-path');
+          gsap.killTweensOf(sigOverlay);
+          gsap.killTweensOf(paths);
+          gsap.set(sigOverlay, { autoAlpha: 0 });
+          signatureVisible = false;
+          signatureAnimating = false;
+        } else {
+          const baseDistance = 9.5; // 3.5 - (-6.0)
+          const currentDistance = camera.position.z - (-6.0);
+          const distScale = currentDistance > 0.01 ? baseDistance / currentDistance : 1000;
+          sigOverlay.style.transform = `translate(-50%, -50%) perspective(1000px) scale(${distScale}) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+        }
+      }
     }
   }
 
