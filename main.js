@@ -631,6 +631,8 @@ class ParticleText {
       }, 600);
     });
     
+    this.sweepEnabled = true;
+    
     const container = this.textEl.parentElement
     container.addEventListener('mousemove', (e) => {
       const crect = this.canvas.getBoundingClientRect()
@@ -775,13 +777,19 @@ class ParticleText {
     
     const isMobile = typeof isMobileDevice !== 'undefined' ? isMobileDevice : window.innerWidth < 768;
     if (isMobile) {
-      if (!this.sweepTime) this.sweepTime = 0;
-      this.sweepTime += 0.018; // ~3s por passagem (meio ciclo de seno)
-      
-      // Movimento senoidal indo e vindo, passando por todo o texto
-      this.simSweepX = (Math.sin(this.sweepTime) * 0.5 + 0.5) * (rect.width + 100) - 50;
-      // Oscila o Y levemente para garantir que pegue o topo de ENGENHARIA e o fundo de CONSTRUÇÃO
-      this.simSweepY = rect.height / 2 + Math.cos(this.sweepTime * 1.5) * 50; 
+      if (this.sweepEnabled !== false) {
+        if (!this.sweepTime) this.sweepTime = 0;
+        this.sweepTime += 0.018; // ~3s por passagem (meio ciclo de seno)
+        
+        // Movimento senoidal indo e vindo, passando por todo o texto
+        this.simSweepX = (Math.sin(this.sweepTime) * 0.5 + 0.5) * (rect.width + 100) - 50;
+        // Oscila o Y levemente para garantir que pegue o topo de ENGENHARIA e o fundo de CONSTRUÇÃO
+        this.simSweepY = rect.height / 2 + Math.cos(this.sweepTime * 1.5) * 50; 
+      } else {
+        // Mantém o cursor fora da tela enquanto a animação de entrada roda
+        this.simSweepX = -1000;
+        this.simSweepY = -1000;
+      }
     }
     
     // 2. Physics logic and Activation
@@ -911,11 +919,18 @@ async function playHeroAnimations() {
     heroTimeline.to(ampersand, { opacity: 1, duration: 1.5, ease: 'power2.out' }, 0.4)
 
     if (heroParticleText) {
+      heroParticleText.sweepEnabled = false; // Desativa varredura enquanto entra
+      
       // H1 letters solid text fades in randomly
       heroTimeline.to(heroParticleText.chars, 
         { opacity: 1, duration: 1.0, stagger: { amount: 1.0, from: "random" }, ease: 'power1.inOut' }, 
         0.4
       )
+      
+      // Reativa a varredura do cursor apenas quando terminar de entrar (0.4s inicio + 2.0s animacao)
+      heroTimeline.call(() => {
+        if (heroParticleText) heroParticleText.sweepEnabled = true;
+      }, null, 2.5);
     }
   
     // H2 fades word by word
