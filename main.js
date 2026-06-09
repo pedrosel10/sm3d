@@ -983,7 +983,12 @@ function animate() {
   const delta = timer.getDelta()
 
   // Smooth scroll interpolation (frame-rate independent to avoid jitter)
-  scrollCurrent += (scrollTarget - scrollCurrent) * (1 - Math.exp(-8 * delta))
+  // Mobile: skip lerp — iOS already has native momentum scrolling, the lerp only adds delay
+  if (window.innerWidth < 768) {
+    scrollCurrent = scrollTarget;
+  } else {
+    scrollCurrent += (scrollTarget - scrollCurrent) * (1 - Math.exp(-8 * delta))
+  }
 
   // Update scroll indicator visibility
   if (Math.abs(scrollCurrent) > 50) {
