@@ -744,14 +744,15 @@ class ParticleText {
     
     const activeParticles = []
     
-    const isMobile = window.innerWidth < 768;
+    const isMobile = typeof isMobileDevice !== 'undefined' ? isMobileDevice : window.innerWidth < 768;
     if (isMobile) {
       if (!this.sweepTime) this.sweepTime = 0;
       this.sweepTime += 0.018; // ~3s por passagem (meio ciclo de seno)
       
       // Movimento senoidal indo e vindo, passando por todo o texto
       this.simSweepX = (Math.sin(this.sweepTime) * 0.5 + 0.5) * (rect.width + 100) - 50;
-      this.simSweepY = rect.height / 2; // Passando pelo meio verticalmente
+      // Oscila o Y levemente para garantir que pegue o topo de ENGENHARIA e o fundo de CONSTRUÇÃO
+      this.simSweepY = rect.height / 2 + Math.cos(this.sweepTime * 1.5) * 50; 
     }
     
     // 2. Physics logic and Activation
@@ -763,11 +764,12 @@ class ParticleText {
         const dy = this.simSweepY - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        if (dist < 45) {
-          const force = (45 - dist) / 45;
+        const sweepRadius = 100; // Raio ampliado para varrer as palavras inteiras
+        if (dist < sweepRadius) {
+          const force = (sweepRadius - dist) / sweepRadius;
           const angle = Math.atan2(dy, dx);
-          p.vx -= Math.cos(angle) * force * 5; // Empurrão igual ao desktop
-          p.vy -= Math.sin(angle) * force * 5;
+          p.vx -= Math.cos(angle) * force * 5.5; // Empurrão
+          p.vy -= Math.sin(angle) * force * 5.5;
           p.active = true;
         }
       } else {
