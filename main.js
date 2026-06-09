@@ -613,9 +613,23 @@ class ParticleText {
     // Usar step = 2 (pixels lógicos) para balancear performance e granularidade
     this.step = 2 * this.dpr
     
-    this.ready = document.fonts.ready.then(() => {
-      this.setup(false)
-    })
+    this.ready = new Promise(resolve => {
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          this.setup(false);
+          resolve();
+        });
+      } else {
+        setTimeout(() => { this.setup(false); resolve(); }, 100);
+      }
+      // Fallback in case document.fonts.ready hangs (Safari bug)
+      setTimeout(() => {
+        if (this.particles.length === 0) {
+          this.setup(false);
+          resolve();
+        }
+      }, 600);
+    });
     
     const container = this.textEl.parentElement
     container.addEventListener('mousemove', (e) => {
@@ -638,6 +652,11 @@ class ParticleText {
   }
 
   setup(isResize) {
+    const oldOpacities = {};
+    if (this.chars) this.chars.forEach(c => {
+      oldOpacities[c.char + Math.round(c.x)] = c.opacity;
+    });
+    
     this.particles = []
     this.chars = []
     
@@ -670,13 +689,14 @@ class ParticleText {
       const rectS = span.getBoundingClientRect()
       const x = rectS.left - rect.left + this.padding
       const y = rectS.top - rect.top + this.padding
-      const charStr = span.innerText === '\u00A0' ? ' ' : span.innerText
+      const charStr = (span.textContent || span.innerText) === '\u00A0' ? ' ' : (span.textContent || span.innerText)
       if (charStr.trim() !== '') {
+        const key = charStr + Math.round(x);
         this.chars.push({
           char: charStr,
           x: x,
           y: y,
-          opacity: isResize ? 1 : 0
+          opacity: oldOpacities[key] !== undefined ? oldOpacities[key] : (isResize ? 1 : 0)
         })
         this.ctx.fillText(charStr, x, y)
       }
@@ -719,11 +739,20 @@ class ParticleText {
       }
     }
     
-    this.ctx.clearRect(0, 0, rect.width, rect.height)
+    this.ctx.clearRect(0, 0, this.canvas.width / this.dpr, this.canvas.height / this.dpr)
   }
   
   animate() {
     requestAnimationFrame(() => this.animate())
+    
+    // Retry extraction if font was delayed
+    if (this.particles.length === 0 && this.chars.length > 0) {
+      if (!this.lastRetry) this.lastRetry = 0;
+      if (Date.now() - this.lastRetry > 1000) {
+        this.setup(true);
+        this.lastRetry = Date.now();
+      }
+    }
     
     const rect = this.canvas.getBoundingClientRect()
     this.ctx.clearRect(0, 0, rect.width, rect.height)
