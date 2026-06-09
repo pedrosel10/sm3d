@@ -778,8 +778,9 @@ class ParticleText {
     const isMobile = typeof isMobileDevice !== 'undefined' ? isMobileDevice : window.innerWidth < 768;
     if (isMobile) {
       if (this.sweepEnabled !== false) {
-        if (!this.sweepTime) this.sweepTime = 0;
-        this.sweepTime += 0.018; // ~3s por passagem (meio ciclo de seno)
+        // Começa em -Math.PI / 2 para que o seno seja -1 (cursor exatamente na borda esquerda fora da tela)
+        if (!this.sweepTime && this.sweepTime !== 0) this.sweepTime = -Math.PI / 2;
+        this.sweepTime += 0.018; // ~3s por passagem
         
         // Movimento senoidal indo e vindo, passando por todo o texto
         this.simSweepX = (Math.sin(this.sweepTime) * 0.5 + 0.5) * (rect.width + 100) - 50;
