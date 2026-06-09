@@ -169,6 +169,10 @@ let backgroundMesh = null
 let modelGroup = null
 let mixer = null
 
+// Rodrigo portrait image transition state
+let imageGroup = null
+let sliceMeshes = [];
+
 // Gear position & rotation state
 let gearOriginalX = 0
 let gearOriginalY = 0
@@ -197,13 +201,86 @@ let SPIN_LIMIT = 15.0 // Max radians per second allowed
 let currentGearAngle = 0 // For smooth velocity limiting
 
 
+// ── Signature Animation Logic ──────────────────────────────────────────
+let signatureVisible = false;
+let signatureAnimating = false;
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2(-1000, -1000); // init off-screen
+
+function checkSignatureHover() {
+  if (signatureAnimating) return;
+
+  // Make sure we're actually in the phase where image is visible
+  if (scrollCurrent < window.innerHeight * 0.5) return; 
+
+  // Wait for the image slicing animation to finish
+  const zoomStart = window.innerHeight * 0.45;
+  const zoomEnd = window.innerHeight * 1.0;
+  const tZoom = Math.max(0, Math.min((scrollCurrent - zoomStart) / (zoomEnd - zoomStart), 1));
+  if (tZoom < 0.95) return;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(sliceMeshes.map(s => s.mesh), false);
+  
+  if (intersects.length > 0 && !signatureVisible) {
+    showSignature();
+  }
+}
+
+function showSignature() {
+  signatureVisible = true;
+  signatureAnimating = true;
+  
+  const overlay = document.getElementById('signature-overlay');
+  const paths = document.querySelectorAll('.sig-path');
+  if (!overlay || paths.length === 0) return;
+
+  gsap.killTweensOf(overlay);
+  gsap.killTweensOf(paths);
+  
+  gsap.set(overlay, { autoAlpha: 1 });
+  
+  // Animate each path from left to right sequentially to simulate handwriting
+  gsap.fromTo(paths, 
+    { clipPath: "polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)", opacity: 1 },
+    { 
+      clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)", 
+      duration: 0.35, 
+      stagger: 0.08,
+      ease: "power2.inOut",
+      onComplete: () => {
+        gsap.to(overlay, { 
+          opacity: 0, 
+          duration: 1.0, 
+          delay: 1.2, 
+          onComplete: () => {
+            gsap.set(overlay, { autoAlpha: 0 });
+            signatureVisible = false;
+            signatureAnimating = false;
+          }
+        });
+      }
+    }
+  );
+}
+
 window.addEventListener('mousemove', (e) => {
   mouseTiltTarget.x = (e.clientX / window.innerWidth) * 2 - 1  // -1 to 1
   mouseTiltTarget.y = (e.clientY / window.innerHeight) * 2 - 1 // -1 to 1
   
+  mouse.x = mouseTiltTarget.x;
+  mouse.y = -mouseTiltTarget.y;
+  checkSignatureHover();
+  
   // Update CSS variables for interactive mesh mask
   document.body.style.setProperty('--mouse-x', `${e.clientX}px`)
   document.body.style.setProperty('--mouse-y', `${e.clientY}px`)
+})
+
+window.addEventListener('click', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  checkSignatureHover();
 })
 
 // ── Mobile Background Simulated Cursor ─────────────────────────────────
@@ -258,6 +335,104 @@ baseColorMap.colorSpace = THREE.SRGBColorSpace
 normalMap.flipY = false
 
 rmMap.flipY = false
+
+// ── Custom Shader for Rodrigo's Image Slices ────────────────────────
+const imageVertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const imageFragmentShader = `
+  varying vec2 vUv;
+  uniform sampler2D uTexture;
+  uniform float uOpacity;
+  uniform float uAberrationStrength;
+  uniform vec2 uMouseTilt;
+
+  void main() {
+    vec2 centerDist = vUv - vec2(0.5);
+    float edgeFactor = dot(centerDist, centerDist);
+    float tiltFactor = length(uMouseTilt);
+    
+    // Aberração cromática que responde às bordas e à inclinação do mouse
+    float shift = uAberrationStrength * (edgeFactor * 1.5 + tiltFactor * 0.7);
+    
+    vec2 uvR = vUv + vec2(shift, 0.0);
+    vec2 uvG = vUv;
+    vec2 uvB = vUv - vec2(shift, 0.0);
+    
+    float r = texture2D(uTexture, clamp(uvR, 0.0, 1.0)).r;
+    float g = texture2D(uTexture, clamp(uvG, 0.0, 1.0)).g;
+    float b = texture2D(uTexture, clamp(uvB, 0.0, 1.0)).b;
+    float a = texture2D(uTexture, uvG).a;
+    
+    gl_FragColor = vec4(r, g, b, a * uOpacity);
+  }
+`;
+
+const imageShaderMaterial = new THREE.ShaderMaterial({
+  vertexShader: imageVertexShader,
+  fragmentShader: imageFragmentShader,
+  uniforms: {
+    uTexture: { value: null },
+    uOpacity: { value: 0.0 },
+    uAberrationStrength: { value: 0.024 },
+    uMouseTilt: { value: new THREE.Vector2(0, 0) }
+  },
+  transparent: true,
+  depthWrite: false
+});
+
+// Inicialização do grupo da imagem tridimensional
+imageGroup = new THREE.Group();
+imageGroup.position.set(0, 1.5, -6.0); // Posicionado atrás do plano da engrenagem
+scene.add(imageGroup);
+
+const imageTexture = textureLoader.load(
+  './foto_rodrigo_1.webp',
+  (texture) => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    
+    const isMobileImage = window.innerWidth <= 768;
+    const imgScale = isMobileImage ? 1.6 : 1.0;
+    const totalHeight = 1.6 * imgScale;
+    const totalWidth = 1.17 * imgScale;
+    const numSlices = 10;
+    const sliceHeight = totalHeight / numSlices;
+    
+    for (let i = 0; i < numSlices; i++) {
+      const geom = new THREE.PlaneGeometry(totalWidth, sliceHeight);
+      
+      const uvAttr = geom.attributes.uv;
+      for (let j = 0; j < uvAttr.count; j++) {
+        let v = uvAttr.getY(j);
+        let newV = (i + v) / numSlices;
+        uvAttr.setY(j, newV);
+      }
+      geom.attributes.uv.needsUpdate = true;
+      
+      const mat = imageShaderMaterial.clone();
+      mat.uniforms.uTexture.value = texture;
+      
+      const mesh = new THREE.Mesh(geom, mat);
+      const localY = -totalHeight / 2 + i * sliceHeight + sliceHeight / 2;
+      mesh.position.set(0, localY, 0);
+      
+      imageGroup.add(mesh);
+      sliceMeshes.push({
+        mesh: mesh,
+        localY: localY,
+        index: i
+      });
+    }
+    console.log('📷 Loaded and sliced foto_rodrigo_1.webp successfully.');
+  },
+  undefined,
+  (err) => console.error('Error loading foto_rodrigo_1.webp:', err)
+);
 
 // Track all active logo materials for dynamic GUI parameter adjustments
 const logoMaterials = new Set()
@@ -1066,6 +1241,19 @@ function animate() {
     const tZoom = Math.max(0, Math.min((scrollCurrent - zoomStart) / (zoomEnd - zoomStart), 1));
     const easeZoom = tZoom * tZoom; // quadratic ease-in (starts slow, speeds up through the gear)
 
+    // Fade out shadows on scroll zoom to prevent massive shadows from darkening the screen
+    const baseFloorOpacity = (typeof guiSettings !== 'undefined' && guiSettings[activeGUIState]) ? (guiSettings[activeGUIState]['val-shadow-floor'] ?? 0.35) : 0.35;
+    const baseWallOpacity = (typeof guiSettings !== 'undefined' && guiSettings[activeGUIState]) ? (guiSettings[activeGUIState]['val-shadow-wall'] ?? 0.25) : 0.25;
+
+    if (shadowFloorMat) {
+      shadowFloorMat.opacity = baseFloorOpacity * (1 - tZoom);
+      shadowFloorMat.needsUpdate = true;
+    }
+    if (shadowWallMat) {
+      shadowWallMat.opacity = baseWallOpacity * (1 - tZoom);
+      shadowWallMat.needsUpdate = true;
+    }
+
     // 2. Mouse tilt — subtle inclination following cursor, which fades out as the gear centers
     const currentTiltStrength = TILT_STRENGTH * (1 - tCentering);
     tiltEuler.set(
@@ -1128,6 +1316,33 @@ function animate() {
     if (!gearMesh.quaternion.equals(lastGearQuat) || posDiff > 0.001 || tZoom > 0) {
       gearMoved = true;
       lastGearQuat.copy(gearMesh.quaternion);
+    }
+
+    // 6. Animador das fatias da foto do Rodrigo (Fase 2 de scroll)
+    if (sliceMeshes.length > 0) {
+      const targetCenter = getScreenCenterWorld(-6.0);
+      imageGroup.position.copy(targetCenter);
+
+      const numSlices = 10;
+      sliceMeshes.forEach(slice => {
+        // Stagger de baixo para cima (índice 0 entra primeiro, índice 9 por último)
+        const delay = (slice.index / numSlices) * 0.25;
+        
+        // Mapeamento de progresso local (inicia mais tarde em tZoom = 0.38, dura 0.30 de scroll)
+        const localProgress = Math.max(0, Math.min((tZoom - 0.38 - delay) / 0.30, 1));
+        const ease = localProgress * localProgress * (3 - 2 * localProgress); // smoothstep
+        
+        // Deslocamento X da esquerda para a direita (inicia em -3.5 e vai para 0)
+        const slideX = -3.5 * (1 - ease);
+        
+        slice.mesh.position.x = slideX;
+        slice.mesh.material.uniforms.uOpacity.value = ease;
+        slice.mesh.material.uniforms.uMouseTilt.value.set(mouseTiltCurrent.x, mouseTiltCurrent.y);
+      });
+      
+      // Rotação sutil de inclinação interativa (mouse tilt) de todo o grupo em 3D
+      imageGroup.rotation.y = mouseTiltCurrent.x * 0.12;
+      imageGroup.rotation.x = -mouseTiltCurrent.y * 0.12;
     }
   }
 

@@ -38,6 +38,11 @@
   --scroll-mb: 0rem;
 }
 
+html {
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
 html, body {
   width: 100%;
   overflow-x: hidden;
@@ -80,6 +85,35 @@ html, body {
   left: 0;
   z-index: 1;
   pointer-events: none; /* Wheel events pass through to body for scrolling */
+}
+
+/* ── Signature Overlay ────────────────────────────────────────────── */
+#signature-overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  pointer-events: none; /* Let clicks pass through */
+  opacity: 0; /* Hidden by default */
+  visibility: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#signature-svg {
+  width: 12.5vw; /* Metade do tamanho anterior */
+  max-width: 125px;
+  min-width: 75px;
+  height: auto;
+  display: block;
+}
+
+.sig-path {
+  /* Hide paths initially so GSAP can animate them in */
+  opacity: 0;
+  will-change: opacity, transform;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -246,6 +280,8 @@ html, body {
   padding-top: var(--hero-padding-top);
   z-index: 15;
   pointer-events: none;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .hero-center-block {
@@ -377,6 +413,8 @@ html, body {
   justify-content: center;
   align-items: center;
   background: transparent;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
