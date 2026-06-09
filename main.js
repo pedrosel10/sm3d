@@ -759,15 +759,15 @@ class ParticleText {
       const p = this.particles[i]
       
       if (isMobile) {
-        const dx = (this.simSweepX * this.dpr) - p.x;
-        const dy = (this.simSweepY * this.dpr) - p.y;
+        const dx = this.simSweepX - p.x;
+        const dy = this.simSweepY - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        if (dist < 40 * this.dpr) {
-          const force = (40 * this.dpr - dist) / (40 * this.dpr);
+        if (dist < 45) {
+          const force = (45 - dist) / 45;
           const angle = Math.atan2(dy, dx);
-          p.vx -= Math.cos(angle) * force * 2 * this.dpr; // Empurrão suave
-          p.vy -= Math.sin(angle) * force * 2 * this.dpr;
+          p.vx -= Math.cos(angle) * force * 5; // Empurrão igual ao desktop
+          p.vy -= Math.sin(angle) * force * 5;
           p.active = true;
         }
       } else {
