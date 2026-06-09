@@ -1012,14 +1012,21 @@ function animate() {
     // 1. Scroll spin — Target angle based on scroll
     const targetAngle = -(scrollCurrent / loopHeight) * Math.PI * SPIN_SPEED;
     
-    // Apply speed limit (max radians per second)
-    const angleDelta = targetAngle - currentGearAngle;
-    const maxDelta = SPIN_LIMIT * delta; // allowed change this frame
+    const isMobile = window.innerWidth < 768;
     
-    if (Math.abs(angleDelta) > maxDelta) {
-      currentGearAngle += Math.sign(angleDelta) * maxDelta;
-    } else {
+    if (isMobile) {
+      // Mobile: follow scrollCurrent directly (it's already smoothed)
       currentGearAngle = targetAngle;
+    } else {
+      // Desktop: apply speed limit (max radians per second)
+      const angleDelta = targetAngle - currentGearAngle;
+      const maxDelta = SPIN_LIMIT * delta;
+      
+      if (Math.abs(angleDelta) > maxDelta) {
+        currentGearAngle += Math.sign(angleDelta) * maxDelta;
+      } else {
+        currentGearAngle = targetAngle;
+      }
     }
     
     gearScrollAngle = currentGearAngle;
@@ -1049,8 +1056,7 @@ function animate() {
     // The target Y combines the original center, the cached text anchor, the manual GUI shift, and the scroll
     const targetY = gearOriginalY + cachedTextAnchorOffset + GEAR_SHIFT_Y + scrollOffset
 
-    // Interpolate gear positions for butter-smooth shifts, using delta to make it frame-rate independent
-    const isMobile = window.innerWidth < 768;
+    // Mobile: snap directly. Desktop: smooth interpolation.
     const lerpFactor = isMobile ? 1.0 : (1 - Math.exp(-8 * delta));
     gearMesh.position.x += (targetX - gearMesh.position.x) * lerpFactor
     gearMesh.position.y += (targetY - gearMesh.position.y) * lerpFactor
