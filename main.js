@@ -855,16 +855,6 @@ class ParticleText {
         this.ctx.fillRect(p.x, p.y, eraseSize, eraseSize)
       })
     }
-    
-    // DEBUG: Cursor vermelho simulado no mobile para checar o movimento na tela real
-    const isMobile = typeof isMobileDevice !== 'undefined' ? isMobileDevice : window.innerWidth < 768;
-    if (isMobile) {
-      this.ctx.globalCompositeOperation = 'source-over';
-      this.ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
-      this.ctx.beginPath();
-      this.ctx.arc(this.simSweepX, this.simSweepY, 15, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
   }
 
   assemble() {
