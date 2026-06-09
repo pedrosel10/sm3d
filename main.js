@@ -48,6 +48,7 @@ camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / initAspe
 camera.updateProjectionMatrix();
 
 camera.position.set(0, 1.5, 3.5)
+const cameraBasePos = new THREE.Vector3(0, 1.5, 3.5);
 
 // ── Environment Map — Ferndale Studio EXR (metallic reflections) ─────
 const pmrem = new THREE.PMREMGenerator(renderer)
@@ -331,10 +332,13 @@ gltfLoader.load(
       camera.updateProjectionMatrix()
       console.log('📷 Using camera from GLB:', glbCam.name)
       
+      cameraBasePos.copy(camera.position)
+      
       // Re-apply GUI overrides for FOV and Z distance if they exist, to respect mobile vs desktop
       if (typeof activeGUIState !== 'undefined' && typeof guiSettings !== 'undefined') {
         const s = guiSettings[activeGUIState];
         if (s && s['val-camera-z'] !== undefined) {
+          cameraBasePos.z = s['val-camera-z'];
           camera.position.z = s['val-camera-z'];
           baseFov = s['val-fov'];
           camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / camera.aspect) ) * 360 / Math.PI;
@@ -969,6 +973,17 @@ window.addEventListener('resize', () => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
 })
 
+// ── Projeção do centro da tela no espaço 3D ──────────────────────────
+function getScreenCenterWorld(targetZ) {
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  if (Math.abs(camDir.z) > 0.0001) {
+    const t = (targetZ - cameraBasePos.z) / camDir.z;
+    return new THREE.Vector3().copy(cameraBasePos).addScaledVector(camDir, t);
+  }
+  return new THREE.Vector3(cameraBasePos.x, cameraBasePos.y, targetZ);
+}
+
 // ── Render Loop (delta time) ─────────────────────────────────────────
 const timer = new THREE.Timer()
 const spinQuat = new THREE.Quaternion()
@@ -1038,10 +1053,24 @@ function animate() {
     gearScrollAngle = currentGearAngle;
     spinQuat.setFromAxisAngle(gearRotationAxis, gearScrollAngle)
 
-    // 2. Mouse tilt — subtle inclination following cursor
+    // Define scroll thresholds relative to window height
+    const centeringEnd = cachedInnerHeight * 0.45;
+    const zoomStart = centeringEnd;
+    const zoomEnd = cachedInnerHeight * 1.0;
+
+    // Phase 1: Centering factor (0 to 1)
+    const tCentering = Math.max(0, Math.min(scrollCurrent / centeringEnd, 1));
+    const easeCentering = tCentering * tCentering * (3 - 2 * tCentering); // smoothstep
+
+    // Phase 2: Zoom factor (0 to 1)
+    const tZoom = Math.max(0, Math.min((scrollCurrent - zoomStart) / (zoomEnd - zoomStart), 1));
+    const easeZoom = tZoom * tZoom; // quadratic ease-in (starts slow, speeds up through the gear)
+
+    // 2. Mouse tilt — subtle inclination following cursor, which fades out as the gear centers
+    const currentTiltStrength = TILT_STRENGTH * (1 - tCentering);
     tiltEuler.set(
-      -mouseTiltCurrent.y * TILT_STRENGTH,  // pitch (tilt up/down)
-       mouseTiltCurrent.x * TILT_STRENGTH,  // yaw (tilt left/right)
+      -mouseTiltCurrent.y * currentTiltStrength,  // pitch (tilt up/down)
+       mouseTiltCurrent.x * currentTiltStrength,  // yaw (tilt left/right)
       0,
       'YXZ'
     )
@@ -1053,25 +1082,52 @@ function animate() {
       .multiply(gearOriginalQuat)
       .multiply(spinQuat)
 
-    // 4. Update vertical position (follows scroll) and center horizontally
-    const targetX = gearOriginalX + GEAR_SHIFT_X
-    
-    // Map scroll pixels to 3D units using cached values (avoids jitter on mobile resize)
-    const scrollOffset = (scrollCurrent / cachedInnerHeight) * cachedVHeight;
-    
-    // The target Y combines the original center, the cached text anchor, the manual GUI shift, and the scroll
-    const targetY = gearOriginalY + cachedTextAnchorOffset + GEAR_SHIFT_Y + scrollOffset
+    // 4. Update Gear Position
+    // Starting offset position (scroll = 0)
+    const startX = gearOriginalX + GEAR_SHIFT_X;
+    const startY = gearOriginalY + cachedTextAnchorOffset + GEAR_SHIFT_Y;
+    const startZ = gearMesh.position.z;
 
-    // Mobile: snap directly. Desktop: smooth interpolation.
+    // Target centered position in world space
+    const screenCenter = getScreenCenterWorld(startZ);
+
+    // Interpolate gear position to center during Phase 1
+    const targetX = THREE.MathUtils.lerp(startX, screenCenter.x, easeCentering);
+    const targetY = THREE.MathUtils.lerp(startY, screenCenter.y, easeCentering);
+    const targetZ = THREE.MathUtils.lerp(startZ, screenCenter.z, easeCentering);
+
     const lerpFactor = isMobile ? 1.0 : (1 - Math.exp(-8 * delta));
-    gearMesh.position.x += (targetX - gearMesh.position.x) * lerpFactor
-    gearMesh.position.y += (targetY - gearMesh.position.y) * lerpFactor
+    gearMesh.position.x += (targetX - gearMesh.position.x) * lerpFactor;
+    gearMesh.position.y += (targetY - gearMesh.position.y) * lerpFactor;
+    gearMesh.position.z += (targetZ - gearMesh.position.z) * lerpFactor;
 
-    // Check if gear actually moved (rotation, tilt or position changed)
-    const posDiff = Math.abs(gearMesh.position.x - targetX)
-    if (!gearMesh.quaternion.equals(lastGearQuat) || posDiff > 0.001) {
-      gearMoved = true
-      lastGearQuat.copy(gearMesh.quaternion)
+    // 5. Camera Zoom (Phase 2)
+    // Find direction from camera base position to gear position
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+
+    // Distance from camera base to gear center
+    const gearToCam = new THREE.Vector3().subVectors(gearMesh.position, cameraBasePos);
+    const baseDistance = gearToCam.dot(cameraDirection);
+
+    // Zoom distance: move camera past the gear by an overshoot value
+    const overshoot = 0.8;
+    const zoomDistance = (baseDistance + overshoot) * easeZoom;
+
+    // Smoothly interpolate camera position
+    const targetCamPos = new THREE.Vector3()
+      .copy(cameraBasePos)
+      .addScaledVector(cameraDirection, zoomDistance);
+
+    camera.position.x += (targetCamPos.x - camera.position.x) * lerpFactor;
+    camera.position.y += (targetCamPos.y - camera.position.y) * lerpFactor;
+    camera.position.z += (targetCamPos.z - camera.position.z) * lerpFactor;
+
+    // Check if gear or camera actually moved to trigger lazy shadow updates
+    const posDiff = Math.abs(gearMesh.position.x - targetX);
+    if (!gearMesh.quaternion.equals(lastGearQuat) || posDiff > 0.001 || tZoom > 0) {
+      gearMoved = true;
+      lastGearQuat.copy(gearMesh.quaternion);
     }
   }
 
@@ -1100,7 +1156,7 @@ animate()
 function updateResponsiveCache() {
   cachedInnerHeight = window.innerHeight;
   if (typeof gearMesh !== 'undefined' && gearMesh) {
-    const dist = camera.position.z - gearMesh.position.z;
+    const dist = cameraBasePos.z - gearMesh.position.z;
     const fovRad = camera.fov * Math.PI / 180;
     cachedVHeight = 2 * Math.tan(fovRad / 2) * dist;
 
@@ -1295,7 +1351,7 @@ function setupGUI() {
     camera.updateProjectionMatrix();
   }, (v) => v.toFixed(0))
 
-  bindRange('val-camera-z', 'disp-camera-z', (val) => { camera.position.z = val; })
+  bindRange('val-camera-z', 'disp-camera-z', (val) => { cameraBasePos.z = val; })
 
   // --- INTERACTION ---
   bindRange('val-tilt', 'disp-tilt', (val) => { TILT_STRENGTH = val; })
