@@ -39,7 +39,6 @@
 }
 
 html {
-  scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
 }
 
@@ -286,8 +285,6 @@ body {
   padding-top: var(--hero-padding-top);
   z-index: 15;
   pointer-events: none;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
 }
 
 .hero-center-block {
@@ -419,8 +416,6 @@ body {
   justify-content: center;
   align-items: center;
   background: transparent;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -436,8 +431,6 @@ body {
   align-items: flex-start; /* Alinha o texto mais acima (próximo da imagem) */
   padding-top: 0vh;
   background: transparent;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
 }
 
 #third-fold-text {
