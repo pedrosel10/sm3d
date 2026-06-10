@@ -18,6 +18,8 @@ const loaderFill = document.getElementById('loader-fill')
 const loaderNumber = document.getElementById('loader-number')
 const scrollIndicator = document.getElementById('scroll-indicator')
 
+let thirdFoldWords = null;
+let lastTThirdFold = -1;
 // ── Scene ────────────────────────────────────────────────────────────
 const scene = new THREE.Scene()
 scene.background = null // Transparent so HTML background shows through
@@ -740,6 +742,69 @@ function splitTextToChars(element) {
   return chars
 }
 
+function splitTextToLines(element) {
+  // If the element has children (like <p>), process them recursively to preserve margins
+  if (element.children.length > 0) {
+    let allLines = [];
+    Array.from(element.children).forEach(child => {
+      allLines = allLines.concat(splitTextToLines(child));
+    });
+    return allLines;
+  }
+
+  // Save original text and clear
+  const text = element.innerText;
+  const words = text.trim().split(/\s+/);
+  element.innerHTML = '';
+  
+  // Create spans for each word to measure their positions
+  const spans = words.map(w => {
+    const span = document.createElement('span');
+    span.innerText = w + ' ';
+    element.appendChild(span);
+    return span;
+  });
+  
+  // Group words into lines based on their vertical offset
+  let lines = [];
+  let currentLine = [];
+  let currentTop = -1;
+  
+  spans.forEach(span => {
+    // If the top offset changes significantly, it's a new line
+    if (currentTop === -1 || Math.abs(span.offsetTop - currentTop) > 5) {
+      currentTop = span.offsetTop;
+      currentLine = [];
+      lines.push(currentLine);
+    }
+    currentLine.push(span);
+  });
+  
+  // Reconstruct the DOM with line wrappers
+  element.innerHTML = '';
+  const lineDivs = lines.map((lineArray, idx) => {
+    const lineDiv = document.createElement('div');
+    lineDiv.style.opacity = '0';
+    lineDiv.style.transform = 'translateY(20px)';
+    lineDiv.style.willChange = 'opacity, transform';
+    lineDiv.style.overflow = 'hidden'; // optional, helps with clean reveals
+    
+    if (idx !== lines.length - 1) {
+      lineDiv.style.textAlign = 'justify';
+      lineDiv.style.textAlignLast = 'justify';
+    }
+    
+    lineArray.forEach(span => {
+      lineDiv.appendChild(span);
+    });
+    
+    element.appendChild(lineDiv);
+    return lineDiv;
+  });
+  
+  return lineDivs;
+}
+
 function splitTextToWords(element) {
   const words = element.innerText.split(' ')
   element.innerHTML = ''
@@ -1249,6 +1314,11 @@ function animate() {
     const tZoom = Math.max(0, Math.min((scrollCurrent - zoomStart) / (zoomEnd - zoomStart), 1));
     const easeZoom = tZoom * tZoom; // quadratic ease-in (starts slow, speeds up through the gear)
 
+    // Phase 3: Third Fold Text
+    const thirdFoldStart = zoomEnd + cachedInnerHeight * 0.3;
+    const thirdFoldEnd = thirdFoldStart + cachedInnerHeight * 0.7;
+    const tThirdFold = Math.max(0, Math.min((scrollCurrent - thirdFoldStart) / (thirdFoldEnd - thirdFoldStart), 1));
+
     // Fade out shadows on scroll zoom to prevent massive shadows from darkening the screen
     const baseFloorOpacity = (typeof guiSettings !== 'undefined' && guiSettings[activeGUIState]) ? (guiSettings[activeGUIState]['val-shadow-floor'] ?? 0.35) : 0.35;
     const baseWallOpacity = (typeof guiSettings !== 'undefined' && guiSettings[activeGUIState]) ? (guiSettings[activeGUIState]['val-shadow-wall'] ?? 0.25) : 0.25;
@@ -1327,8 +1397,19 @@ function animate() {
     }
 
     // 6. Animador das fatias da foto do Rodrigo (Fase 2 de scroll)
-    if (sliceMeshes.length > 0) {
+    if (imageGroup) {
       const targetCenter = getScreenCenterWorld(-6.0);
+      
+      // Scroll the image UP if we scroll past the second fold (like a normal page)
+      const extraScroll = Math.max(0, scrollCurrent - zoomEnd);
+      const dist = camera.position.z - (-6.0);
+      const fovRad = THREE.MathUtils.degToRad(camera.fov / 2);
+      const visibleHeightAtZ = 2 * dist * Math.tan(fovRad);
+      const worldUnitsPerPixel = visibleHeightAtZ / cachedInnerHeight;
+      
+      // Move up in 3D space
+      targetCenter.y += extraScroll * worldUnitsPerPixel;
+      
       imageGroup.position.copy(targetCenter);
 
       const numSlices = 10;
@@ -1366,9 +1447,56 @@ function animate() {
           const baseDistance = 9.5; // 3.5 - (-6.0)
           const currentDistance = camera.position.z - (-6.0);
           const distScale = currentDistance > 0.01 ? baseDistance / currentDistance : 1000;
-          sigOverlay.style.transform = `translate(-50%, -50%) perspective(1000px) scale(${distScale}) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+          const yOffsetPixels = -extraScroll; // Move UP in pixels to match 3D scroll
+          sigOverlay.style.transform = `translate(-50%, calc(-50% + ${yOffsetPixels}px)) perspective(1000px) scale(${distScale}) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
         }
       }
+    }
+
+    // ── Update Third Fold Text ──────────────────────────────────────────
+    if (tThirdFold !== lastTThirdFold) {
+      lastTThirdFold = tThirdFold;
+      const el = document.getElementById('third-fold-text');
+      if (el) {
+        if (!thirdFoldWords) {
+          // Agora vamos animar por LINHA
+          thirdFoldWords = splitTextToLines(el);
+        }
+        
+        // Stagger animation for LINES based on scroll
+        const numLines = thirdFoldWords.length;
+        if (numLines > 0) {
+          const staggerOverlap = 0.3; // How much of the scroll is dedicated to fading a single line
+          thirdFoldWords.forEach((lineDiv, idx) => {
+            const lineStart = (idx / numLines) * (1 - staggerOverlap);
+            const lineEnd = lineStart + staggerOverlap;
+            const tLine = Math.max(0, Math.min((tThirdFold - lineStart) / (lineEnd - lineStart), 1));
+            
+            if (tLine === 0) {
+              lineDiv.style.opacity = 0;
+              lineDiv.style.transform = `translateY(20px)`;
+            } else if (tLine === 1) {
+              lineDiv.style.opacity = 1;
+              lineDiv.style.transform = `translateY(0px)`;
+            } else {
+              const easeLine = tLine * (2 - tLine); // out-quad
+              lineDiv.style.opacity = easeLine;
+              lineDiv.style.transform = `translateY(${20 * (1 - easeLine)}px)`;
+            }
+          });
+        }
+      }
+    }
+    
+    // Sync third-fold visual scrolling with the smoothed scrollCurrent
+    const thirdFoldTextWrapper = document.getElementById('third-fold-text');
+    if (thirdFoldTextWrapper) {
+      // The browser natively scrolls the div by scrollTarget (window.scrollY).
+      // We want it to visually scroll by scrollCurrent.
+      // We apply this to the text wrapper, NOT the fold container, to prevent the document height from expanding and causing scroll bugs.
+      // const scrollDiff = scrollTarget - scrollCurrent;
+      // thirdFoldTextWrapper.style.transform = `translateY(${scrollDiff}px)`;
+      thirdFoldTextWrapper.style.transform = `translateY(0px)`;
     }
   }
 
