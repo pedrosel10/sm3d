@@ -112,21 +112,6 @@ gltfLoader.load(
       // O site principal MANTÉM a keyLight e a ambientLight ligadas,
       // ele só adiciona as luzes do GLB por cima.
       glbLights.forEach(light => {
-        // A luz interna é uma PointLight (luz de ponto). 
-        // A luz externa branca é uma SpotLight. Então filtramos apenas pela PointLight.
-        if (light.isPointLight) {
-          // Deixa a luz interna consideravelmente mais forte
-          light.intensity *= 4.0;
-          
-          // Clona a luz para o lado oposto
-          const oppositeLight = light.clone();
-          oppositeLight.position.x *= -1; // Inverte no eixo X
-          oppositeLight.position.z *= -1; // Inverte no eixo Z
-
-          // Adiciona a nova luz no mesmo grupo da original
-          light.parent.add(oppositeLight);
-        }
-
         if (light.isDirectionalLight || light.isSpotLight) {
           light.castShadow = true
           light.shadow.mapSize.set(4096, 4096) // Sombras do GLB em 4K
