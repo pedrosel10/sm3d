@@ -39,18 +39,18 @@ document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: 
 document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false })
 document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false })
 
-// Previne pinch-to-zoom (2+ dedos)
-document.addEventListener('touchstart', (e) => {
+// Previne pinch-to-zoom (2+ dedos) mesmo durante scroll
+window.addEventListener('touchstart', (e) => {
   if (e.touches.length > 1) {
     e.preventDefault()
   }
-}, { passive: false })
+}, { passive: false, capture: true })
 
-document.addEventListener('touchmove', (e) => {
-  if (e.touches.length > 1) {
+window.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 1 || (e.scale && e.scale !== 1)) {
     e.preventDefault()
   }
-}, { passive: false })
+}, { passive: false, capture: true })
 
 // Previne double-tap to zoom
 let lastTouchEnd = 0
@@ -60,7 +60,7 @@ document.addEventListener('touchend', (e) => {
     e.preventDefault()
   }
   lastTouchEnd = now
-}, { passive: false })
+}, { passive: false, capture: true })
 
 // ── GLOBAL SIZING HELPERS ────────────────────────────────────────────
 
