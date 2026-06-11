@@ -14,16 +14,18 @@ const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 100)
 camera.position.set(0.9, -1.65, 3.5) // Posição padrão Desktop
 
-// ── Renderizador ─────────────────────────────────────────────────────
+// ── Renderizador (QUALIDADE MÁXIMA) ──────────────────────────────────
 const renderer = new THREE.WebGLRenderer({
   canvas,
   antialias: true,
-  alpha: true // Fundo transparente para ver a cor do CSS
+  alpha: true, // Fundo transparente para ver a cor do CSS
+  powerPreference: "high-performance" // Força o uso da GPU dedicada
 })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+// Removemos a limitação de "Math.min" para usar o pixelRatio nativo (ex: 3x em iPhones e MacBooks Retina)
+renderer.setPixelRatio(window.devicePixelRatio)
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.shadowMap.type = THREE.PCFSoftShadowMap // Melhor suavização de sombras
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
 
@@ -47,7 +49,7 @@ scene.add(ambientLight)
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.5)
 keyLight.position.set(-1.5, 3.5, 6)
 keyLight.castShadow = true
-keyLight.shadow.mapSize.set(1024, 1024)
+keyLight.shadow.mapSize.set(4096, 4096) // Sombras em 4K
 keyLight.shadow.bias = -0.0026
 keyLight.shadow.normalBias = 0.04
 keyLight.shadow.radius = 3.5
@@ -63,6 +65,12 @@ baseColorMap.flipY = false
 baseColorMap.colorSpace = THREE.SRGBColorSpace
 normalMap.flipY = false
 rmMap.flipY = false
+
+// Maximiza a nitidez das texturas quando vistas de ângulo (Anisotropia)
+const maxAnisotropy = renderer.capabilities.getMaxAnisotropy()
+baseColorMap.anisotropy = maxAnisotropy
+normalMap.anisotropy = maxAnisotropy
+rmMap.anisotropy = maxAnisotropy
 
 // ── Carregador do Modelo (GLTF + Draco) ──────────────────────────────
 const dracoLoader = new DRACOLoader()
@@ -99,13 +107,14 @@ gltfLoader.load(
       camera.updateProjectionMatrix()
     }
     
-    // Se o modelo trouxer luzes (como no site), remove a luz direcional manual
+    // Configurar luzes do modelo
     if (glbLights.length > 0) {
-      scene.remove(keyLight)
+      // O site principal MANTÉM a keyLight e a ambientLight ligadas,
+      // ele só adiciona as luzes do GLB por cima.
       glbLights.forEach(light => {
         if (light.isDirectionalLight || light.isSpotLight) {
           light.castShadow = true
-          light.shadow.mapSize.set(2048, 2048)
+          light.shadow.mapSize.set(4096, 4096) // Sombras do GLB em 4K
           light.shadow.bias = -0.0002
           light.shadow.normalBias = 0.02
           light.shadow.radius = 3.0
@@ -113,41 +122,53 @@ gltfLoader.load(
       })
     }
 
-    // Lógica de Materiais idêntica ao main.js
+    // Aplicar materiais em TODAS as malhas (mesma lógica do main.js)
     root.traverse((child) => {
       if (child.isMesh) {
-        child.castShadow = true
-        child.receiveShadow = true
+        const nameLower = (child.name || '').toLowerCase()
+        const isBackgroundMesh = nameLower.includes('fundo') || nameLower.includes('plane') || nameLower.includes('background')
 
-        if (child.material && child.material.name === 'Logo Material') {
-          const newMat = new THREE.MeshPhysicalMaterial({
-            color: new THREE.Color('#001e57'),
-            map: baseColorMap,
-            normalMap: normalMap,
-            normalScale: new THREE.Vector2(2.0, 2.0),
-            roughnessMap: rmMap,
-            metalnessMap: rmMap,
-            metalness: 1.0,
-            roughness: 0.2,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.0,
-            emissive: new THREE.Color('#000000'),
-            shadowSide: THREE.FrontSide
-          })
-          child.material.dispose()
-          child.material = newMat
+        if (!isBackgroundMesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+          
+          if (child.material) {
+            // Em vez de checar por nome, aplica direto
+            const newMat = new THREE.MeshPhysicalMaterial({
+              color: new THREE.Color('#001e57'),
+              map: baseColorMap,
+              normalMap: normalMap,
+              normalScale: new THREE.Vector2(2.0, 2.0),
+              roughnessMap: rmMap,
+              metalnessMap: rmMap,
+              metalness: 1.0,
+              roughness: 0.2,
+              clearcoat: 1.0,
+              clearcoatRoughness: 0.0,
+              emissive: new THREE.Color('#000000'),
+              shadowSide: THREE.FrontSide
+            })
+            // Se for um array de materiais
+            if (Array.isArray(child.material)) {
+              child.material.forEach(m => m.dispose())
+              child.material = [newMat]
+            } else {
+              child.material.dispose()
+              child.material = newMat
+            }
+          }
         }
       }
     })
 
-    // Centralizar engrenagem na visão do OrbitControls
-    const box = new THREE.Box3().setFromObject(root)
-    const center = box.getCenter(new THREE.Vector3())
-    root.position.x -= center.x
-    root.position.y -= center.y
-    root.position.z -= center.z
-
+    // Não mover a engrenagem matematicamente. 
+    // Deixa ela na posição original do arquivo 3D assim como no site principal.
     scene.add(root)
+    
+    // Atualiza o target do controle de orbita para o centro da tela
+    controls.target.set(0, 0, 0)
+    controls.update()
+
     loaderEl.style.display = 'none'
   },
   undefined,
