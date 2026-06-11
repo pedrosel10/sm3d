@@ -106,6 +106,26 @@ gltfLoader.load(
       if (child.isLight) glbLights.push(child)
     })
 
+    // Clona a luz LUZ_01 especificamente para o lado oposto
+    const luz01 = glbLights.find(l => l.name === 'LUZ_01' || l.name === 'LUZ_01_Orientation'); // Às vezes o blender adiciona sufixos
+    if (luz01) {
+      const cloneLight = luz01.clone()
+      cloneLight.name = 'LUZ_01_Espelhada'
+      cloneLight.position.x *= -1
+      cloneLight.position.z *= -1
+      
+      if (cloneLight.isSpotLight && cloneLight.target) {
+        const newTarget = cloneLight.target.clone()
+        newTarget.position.x *= -1
+        newTarget.position.z *= -1
+        cloneLight.target = newTarget
+        luz01.parent.add(newTarget)
+      }
+      
+      luz01.parent.add(cloneLight)
+      glbLights.push(cloneLight) // Adiciona na lista para o GUI pegar
+    }
+
     if (glbCameras.length > 0) {
       const glbCam = glbCameras[0]
       glbCam.updateMatrixWorld(true)
@@ -129,16 +149,34 @@ gltfLoader.load(
         const lightName = light.name || light.type
         const lFolder = glbFolder.addFolder(`${lightName} ${i + 1}`)
         
-        // Define limites dinâmicos baseados no valor inicial da luz para não quebrar a configuração atual
+        // Intensidade
         const maxIntensity = Math.max(light.intensity * 3, 50)
         lFolder.add(light, 'intensity', 0, maxIntensity, 0.01).name('Intensidade').listen()
         
-        // Apenas adiciona controle de posição se não for AmbientLight (que não tem posição física)
+        // Cor
+        const colorParams = { color: light.color.getHex() }
+        lFolder.addColor(colorParams, 'color').name('Cor').onChange((val) => light.color.setHex(val)).listen()
+        
+        // Posição
         if (!light.isAmbientLight && light.position) {
           const b = Math.max(Math.abs(light.position.x), Math.abs(light.position.y), Math.abs(light.position.z), 50) * 2;
           lFolder.add(light.position, 'x', -b, b, 0.1).name('Posição X').listen()
           lFolder.add(light.position, 'y', -b, b, 0.1).name('Posição Y').listen()
           lFolder.add(light.position, 'z', -b, b, 0.1).name('Posição Z').listen()
+        }
+
+        // Propriedades Avançadas
+        if (light.distance !== undefined) {
+          lFolder.add(light, 'distance', 0, Math.max(light.distance * 3, 50), 0.1).name('Distância').listen()
+        }
+        if (light.decay !== undefined) {
+          lFolder.add(light, 'decay', 0, 10, 0.1).name('Decaimento (Decay)').listen()
+        }
+        if (light.angle !== undefined) {
+          lFolder.add(light, 'angle', 0, Math.PI / 2, 0.01).name('Ângulo').listen()
+        }
+        if (light.penumbra !== undefined) {
+          lFolder.add(light, 'penumbra', 0, 1, 0.01).name('Penumbra').listen()
         }
 
         if (light.isDirectionalLight || light.isSpotLight) {
