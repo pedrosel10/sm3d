@@ -35,7 +35,7 @@ controls.target.set(0, 0, 0)
 
 // ── HDR (Reflexos) ───────────────────────────────────────────────────
 const rgbeLoader = new RGBELoader()
-rgbeLoader.load('../ferndale_studio_01_1k.hdr', (texture) => {
+rgbeLoader.load('./ferndale_studio_01_1k.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping
   scene.environment = texture
 })
@@ -55,9 +55,9 @@ scene.add(keyLight)
 
 // ── Texturas ─────────────────────────────────────────────────────────
 const textureLoader = new THREE.TextureLoader()
-const baseColorMap = textureLoader.load('../logo_basecolor.jpg')
-const normalMap = textureLoader.load('../logo_normal.jpg')
-const rmMap = textureLoader.load('../logo_rm.jpg')
+const baseColorMap = textureLoader.load('./logo_basecolor.jpg')
+const normalMap = textureLoader.load('./logo_normal.jpg')
+const rmMap = textureLoader.load('./logo_rm.jpg')
 
 baseColorMap.flipY = false
 baseColorMap.colorSpace = THREE.SRGBColorSpace
@@ -72,7 +72,7 @@ const gltfLoader = new GLTFLoader()
 gltfLoader.setDRACOLoader(dracoLoader)
 
 gltfLoader.load(
-  '../smlogo3d.glb',
+  './smlogo3d.glb',
   (gltf) => {
     const root = gltf.scene
 
