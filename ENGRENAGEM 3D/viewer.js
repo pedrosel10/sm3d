@@ -129,12 +129,16 @@ gltfLoader.load(
         const lightName = light.name || light.type
         const lFolder = glbFolder.addFolder(`${lightName} ${i + 1}`)
         
-        lFolder.add(light, 'intensity', 0, 50, 0.01).name('Intensidade')
+        // Define limites dinâmicos baseados no valor inicial da luz para não quebrar a configuração atual
+        const maxIntensity = Math.max(light.intensity * 3, 50)
+        lFolder.add(light, 'intensity', 0, maxIntensity, 0.01).name('Intensidade').listen()
         
-        if (light.position) {
-          lFolder.add(light.position, 'x', -50, 50, 0.1).name('Posição X')
-          lFolder.add(light.position, 'y', -50, 50, 0.1).name('Posição Y')
-          lFolder.add(light.position, 'z', -50, 50, 0.1).name('Posição Z')
+        // Apenas adiciona controle de posição se não for AmbientLight (que não tem posição física)
+        if (!light.isAmbientLight && light.position) {
+          const b = Math.max(Math.abs(light.position.x), Math.abs(light.position.y), Math.abs(light.position.z), 50) * 2;
+          lFolder.add(light.position, 'x', -b, b, 0.1).name('Posição X').listen()
+          lFolder.add(light.position, 'y', -b, b, 0.1).name('Posição Y').listen()
+          lFolder.add(light.position, 'z', -b, b, 0.1).name('Posição Z').listen()
         }
 
         if (light.isDirectionalLight || light.isSpotLight) {
