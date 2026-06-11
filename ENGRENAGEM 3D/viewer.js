@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import GUI from 'lil-gui'
 
 const canvas = document.getElementById('app-canvas')
 const loaderEl = document.getElementById('loader')
@@ -54,6 +55,18 @@ keyLight.shadow.bias = -0.0026
 keyLight.shadow.normalBias = 0.04
 keyLight.shadow.radius = 3.5
 scene.add(keyLight)
+
+// ── Menu de Controles (lil-gui) ──────────────────────────────────────
+const gui = new GUI({ title: 'Controles de Iluminação' })
+
+const ambFolder = gui.addFolder('Ambiente (Luz de Preenchimento)')
+ambFolder.add(ambientLight, 'intensity', 0, 5, 0.01).name('Intensidade')
+
+const keyFolder = gui.addFolder('Luz Direcional (Externa)')
+keyFolder.add(keyLight, 'intensity', 0, 10, 0.01).name('Intensidade')
+keyFolder.add(keyLight.position, 'x', -20, 20, 0.1).name('Posição X')
+keyFolder.add(keyLight.position, 'y', -20, 20, 0.1).name('Posição Y')
+keyFolder.add(keyLight.position, 'z', -20, 20, 0.1).name('Posição Z')
 
 // ── Texturas ─────────────────────────────────────────────────────────
 const textureLoader = new THREE.TextureLoader()
@@ -109,9 +122,21 @@ gltfLoader.load(
     
     // Configurar luzes do modelo
     if (glbLights.length > 0) {
-      // O site principal MANTÉM a keyLight e a ambientLight ligadas,
-      // ele só adiciona as luzes do GLB por cima.
-      glbLights.forEach(light => {
+      const glbFolder = gui.addFolder('Luzes Internas do Modelo 3D (GLB)')
+      
+      glbLights.forEach((light, i) => {
+        // Cria um menu para cada luz que vier embutida
+        const lightName = light.name || light.type
+        const lFolder = glbFolder.addFolder(`${lightName} ${i + 1}`)
+        
+        lFolder.add(light, 'intensity', 0, 50, 0.01).name('Intensidade')
+        
+        if (light.position) {
+          lFolder.add(light.position, 'x', -50, 50, 0.1).name('Posição X')
+          lFolder.add(light.position, 'y', -50, 50, 0.1).name('Posição Y')
+          lFolder.add(light.position, 'z', -50, 50, 0.1).name('Posição Z')
+        }
+
         if (light.isDirectionalLight || light.isSpotLight) {
           light.castShadow = true
           light.shadow.mapSize.set(4096, 4096) // Sombras do GLB em 4K
