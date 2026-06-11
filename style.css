@@ -399,6 +399,9 @@ body {
 }
 
 @media (max-width: 768px) {
+  :root {
+    --hero-font-h2: 1rem;
+  }
   #hero-section {
     padding-top: 3.75rem;
   }
@@ -407,6 +410,9 @@ body {
     max-width: 330px;
     margin-left: auto;
     margin-right: auto;
+  }
+  .hero-h2 {
+    color: #353545;
   }
 }
 

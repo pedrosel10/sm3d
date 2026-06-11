@@ -2009,7 +2009,7 @@ function setupGUI() {
     'val-axis': '-x',
     'val-font-top': 0.5,
     'val-font-h1': 3.3,
-    'val-font-h2': 0.7,
+    'val-font-h2': 1.0,
     'val-pad-top': 5,
     'val-mar-top-text': 2,
     'val-mar-top': 1.5,
