@@ -14,20 +14,25 @@ import 'lenis/dist/lenis.css'
 
 gsap.registerPlugin(ScrollTrigger)
 
-// ── Lenis Smooth Scroll (padrão profissional Three.js) ───────────────
-const lenis = new Lenis({
-  duration: 1.2,
-  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-  touchMultiplier: 2.0,
-  infinite: false,
-})
+// ── Detecção mobile (uma vez, no boot) ─────────────────────────────
+const _isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-// Sincronizar Lenis → GSAP ScrollTrigger (single RAF loop)
-lenis.on('scroll', ScrollTrigger.update)
-gsap.ticker.add((time) => {
-  lenis.raf(time * 1000)
-})
-gsap.ticker.lagSmoothing(0)
+// ── Lenis Smooth Scroll — DESKTOP ONLY ─────────────────────────────
+// No mobile, scroll nativo roda na compositor thread (off main thread, 60fps garantido)
+// Lenis no mobile puxa scroll para main thread via scrollTo(), competindo com Three.js
+let lenis = null;
+if (!_isTouchDevice) {
+  lenis = new Lenis({
+    duration: 1.2,
+    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    infinite: false,
+  })
+  lenis.on('scroll', ScrollTrigger.update)
+  gsap.ticker.add((time) => {
+    lenis.raf(time * 1000)
+  })
+  gsap.ticker.lagSmoothing(0)
+}
 
 // ── Anti-Zoom: Previne gesture zoom residual no Safari iOS ───────────
 document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false })
@@ -726,10 +731,14 @@ gltfLoader.load(
   }
 )
 
-// ── Smooth Scroll (Lenis) ────────────────────────────────────────────
-// scrollCurrent é fornecido pelo Lenis (já suavizado a 60fps)
-// Mantemos a variável local para compatibilidade com o código existente
+// ── Smooth Scroll (híbrido: Lenis desktop / nativo mobile) ───────────
 let scrollCurrent = 0
+let _mobileScrollTarget = 0
+
+if (_isTouchDevice) {
+  // Mobile: scroll nativo na compositor thread + leitura direta no rAF
+  // NÃO usar evento scroll (baixa frequência no Safari) — ler scrollY direto no rAF
+}
 
 // ── Text Splitter Utilities ──────────────────────────────────────────
 function splitTextToChars(element) {
@@ -1282,33 +1291,43 @@ function setupStatsAnimations() {
   });
 }
 
-// ── Resize (blindado contra pinch zoom) ───────────────────────────────
+// ── Resize (blindado contra pinch zoom + address bar Safari) ──────────
 let lastKnownLayoutWidth = window.innerWidth;
-let lastKnownLayoutHeight = window.innerHeight;
+// Altura estável: no mobile, capturar na inicialização e só mudar em rotação de tela
+let stableHeight = window.innerHeight;
 
 function handleResize() {
   // Detectar se é zoom de pinch (não resize real)
   const isZoom = window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.01;
-  if (isZoom) return; // Ignorar zoom — não recalcular nada
+  if (isZoom) return;
 
   const w = window.innerWidth;
   const h = window.innerHeight;
   
-  // Verificar se houve mudança real de dimensão (pelo menos 20px)
-  // Isso filtra micro-resizes que Safari dispara durante scroll (address bar)
-  if (Math.abs(w - lastKnownLayoutWidth) < 20 && Math.abs(h - lastKnownLayoutHeight) < 20) return;
-  
-  lastKnownLayoutWidth = w;
-  lastKnownLayoutHeight = h;
+  if (_isTouchDevice) {
+    // MOBILE: A barra de endereço do Safari muda a altura em ~50-88px ao scrollar.
+    // Isso causa resize events espúrios que recalculam FOV/aspect e fazem tudo "pular".
+    // Solução: só reagir se a LARGURA mudar (rotação de tela real).
+    if (Math.abs(w - lastKnownLayoutWidth) < 10) return;
+    
+    // Rotação de tela detectada — atualizar altura estável
+    lastKnownLayoutWidth = w;
+    stableHeight = h;
+  } else {
+    // DESKTOP: reagir normalmente a qualquer resize significativo
+    if (Math.abs(w - lastKnownLayoutWidth) < 5 && Math.abs(h - stableHeight) < 5) return;
+    lastKnownLayoutWidth = w;
+    stableHeight = h;
+  }
 
-  const aspect = w / h;
+  const aspect = w / stableHeight;
   camera.aspect = aspect;
   
   // Maintain constant horizontal FOV relative to 16:9 (1.7777)
   camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / aspect) ) * 360 / Math.PI;
   
   camera.updateProjectionMatrix()
-  renderer.setSize(w, h)
+  renderer.setSize(w, stableHeight)
   renderer.setPixelRatio(isMobileDevice ? 1.0 : Math.min(window.devicePixelRatio, 1.5))
 }
 
@@ -1343,8 +1362,16 @@ function animate() {
   timer.update()
   const delta = timer.getDelta()
 
-  // Lenis fornece scroll suavizado a 60fps — usar diretamente
-  scrollCurrent = lenis.scroll
+  // ── Scroll: desktop via Lenis, mobile via nativo + interpolação ───
+  if (_isTouchDevice) {
+    // Mobile: ler scrollY diretamente no rAF (atualiza a cada frame mesmo durante inércia)
+    _mobileScrollTarget = window.scrollY;
+    // Interpolação exponencial frame-rate-independent (suave e responsiva)
+    scrollCurrent += (_mobileScrollTarget - scrollCurrent) * (1 - Math.exp(-12 * delta));
+  } else {
+    // Desktop: Lenis já fornece scroll suavizado
+    scrollCurrent = lenis.scroll
+  }
 
   // --- Lógica para Perspectiva 3D e Distorção Curva (Stats) ---
   const scrollVelocity = scrollCurrent - (window._lastScrollForSkew || scrollCurrent);
@@ -1642,8 +1669,11 @@ function updateResponsiveCache() {
   // Mesma proteção contra zoom do handleResize
   const isZoom = window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.01;
   if (isZoom) return;
+
+  // No mobile, ignorar se é só mudança de altura (address bar)
+  if (_isTouchDevice && Math.abs(window.innerWidth - lastKnownLayoutWidth) < 10) return;
   
-  cachedInnerHeight = window.innerHeight;
+  cachedInnerHeight = stableHeight;
   if (typeof gearMesh !== 'undefined' && gearMesh) {
     const dist = cameraBasePos.z - gearMesh.position.z;
     const fovRad = camera.fov * Math.PI / 180;

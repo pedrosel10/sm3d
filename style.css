@@ -79,7 +79,8 @@ body {
 #app-canvas {
   display: block;
   width: 100vw;
-  height: 100vh;
+  height: 100vh; /* fallback */
+  height: 100svh; /* Safari: viewport estável, não muda com address bar */
   position: fixed;
   top: 0;
   left: 0;
