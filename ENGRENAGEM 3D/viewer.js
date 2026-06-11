@@ -43,12 +43,14 @@ rgbeLoader.load('./ferndale_studio_01_1k.hdr', (texture) => {
   scene.environment = texture
 })
 
-// ── Iluminação Manual (Fallback) ─────────────────────────────────────
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.15)
+// ── Iluminação Manual (Base) ─────────────────────────────────────────
+// Ambiente (Luz de Preenchimento)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0)
 scene.add(ambientLight)
 
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.5)
-keyLight.position.set(-1.5, 3.5, 6)
+// Luz Direcional (Externa)
+const keyLight = new THREE.DirectionalLight(0xffffff, 3.73)
+keyLight.position.set(-2.6, 0.8, 8.2)
 keyLight.castShadow = true
 keyLight.shadow.mapSize.set(4096, 4096) // Sombras em 4K
 keyLight.shadow.bias = -0.0026
@@ -145,8 +147,24 @@ gltfLoader.load(
       const glbFolder = gui.addFolder('Luzes Internas do Modelo 3D (GLB)')
       
       glbLights.forEach((light, i) => {
-        // Cria um menu para cada luz que vier embutida
         const lightName = light.name || light.type
+        
+        // Aplica os valores definidos pelo usuário
+        if (lightName === 'LUZ_01' || lightName === 'LUZ_01_Orientation') {
+          light.intensity = 71290.3
+          light.color.setHex(0xffffff)
+          if (light.position) light.position.set(4.5, 0.9, 5.4)
+          if (light.distance !== undefined) light.distance = 0
+          if (light.decay !== undefined) light.decay = 2.2
+        } else if (lightName === 'LUZ_01_Espelhada') {
+          light.intensity = 49949.9
+          light.color.setHex(0xffffff)
+          if (light.position) light.position.set(-12.6, 0.85593, -2.0999)
+          if (light.distance !== undefined) light.distance = 29.7
+          if (light.decay !== undefined) light.decay = 1.3
+        }
+
+        // Cria um menu para cada luz que vier embutida
         const lFolder = glbFolder.addFolder(`${lightName} ${i + 1}`)
         
         // Intensidade
