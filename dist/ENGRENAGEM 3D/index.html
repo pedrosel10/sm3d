@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visualizador - Engrenagem 3D</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #e0e0e0; /* Cor de fundo idêntica ao site */
+      }
+      #app-canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      #loader {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-family: sans-serif;
+        color: #001e57;
+        font-weight: bold;
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
+    <script type="module" crossorigin src="../assets/viewer-CQZAj8oI.js"></script>
+    <link rel="modulepreload" crossorigin href="../assets/RGBELoader-Ckv-dBR_.js">
+  </head>
+  <body>
+    <div id="loader">Carregando Engrenagem 3D...</div>
+    <canvas id="app-canvas"></canvas>
+  </body>
+</html>
