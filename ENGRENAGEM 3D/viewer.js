@@ -112,28 +112,16 @@ gltfLoader.load(
       // O site principal MANTÉM a keyLight e a ambientLight ligadas,
       // ele só adiciona as luzes do GLB por cima.
       glbLights.forEach(light => {
-        // Filtra para pegar apenas a luz azul (onde o canal B é maior que o R) 
-        // para não estourar a luz branca caso haja uma SpotLight/PointLight branca no modelo
-        const isBlueLight = light.color.b > light.color.r * 1.5;
-
-        // Se for uma luz pontual azul, deixamos ela mais forte e espelhamos
-        if ((light.isPointLight || light.isSpotLight) && isBlueLight) {
-          // Deixa a luz azul consideravelmente mais forte
+        // A luz interna é uma PointLight (luz de ponto). 
+        // A luz externa branca é uma SpotLight. Então filtramos apenas pela PointLight.
+        if (light.isPointLight) {
+          // Deixa a luz interna consideravelmente mais forte
           light.intensity *= 4.0;
           
           // Clona a luz para o lado oposto
           const oppositeLight = light.clone();
           oppositeLight.position.x *= -1; // Inverte no eixo X
           oppositeLight.position.z *= -1; // Inverte no eixo Z
-          
-          // Se for SpotLight, inverte para onde ela está olhando também
-          if (oppositeLight.isSpotLight && oppositeLight.target) {
-            const newTarget = oppositeLight.target.clone();
-            newTarget.position.x *= -1;
-            newTarget.position.z *= -1;
-            oppositeLight.target = newTarget;
-            light.parent.add(newTarget);
-          }
 
           // Adiciona a nova luz no mesmo grupo da original
           light.parent.add(oppositeLight);
