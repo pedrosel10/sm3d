@@ -8,6 +8,30 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import Lenis from 'lenis'
+import 'lenis/dist/lenis.css'
+
+gsap.registerPlugin(ScrollTrigger)
+
+// ── Lenis Smooth Scroll (padrão profissional Three.js) ───────────────
+const lenis = new Lenis({
+  duration: 1.2,
+  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+  touchMultiplier: 2.0,
+  infinite: false,
+})
+
+// Sincronizar Lenis → GSAP ScrollTrigger (single RAF loop)
+lenis.on('scroll', ScrollTrigger.update)
+gsap.ticker.add((time) => {
+  lenis.raf(time * 1000)
+})
+gsap.ticker.lagSmoothing(0)
+
+// ── Anti-Zoom: Previne gesture zoom residual no Safari iOS ───────────
+document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false })
+document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false })
 
 // ── GLOBAL SIZING HELPERS ────────────────────────────────────────────
 
@@ -702,13 +726,10 @@ gltfLoader.load(
   }
 )
 
-// ── Smooth Scroll ────────────────────────────────────────────────────
-let scrollTarget = window.scrollY || 0
-let scrollCurrent = window.scrollY || 0
-
-window.addEventListener('scroll', () => {
-  scrollTarget = window.scrollY
-}, { passive: true })
+// ── Smooth Scroll (Lenis) ────────────────────────────────────────────
+// scrollCurrent é fornecido pelo Lenis (já suavizado a 60fps)
+// Mantemos a variável local para compatibilidade com o código existente
+let scrollCurrent = 0
 
 // ── Text Splitter Utilities ──────────────────────────────────────────
 function splitTextToChars(element) {
@@ -1204,22 +1225,94 @@ function setupScrollAnimations() {
 
   // Hide panels temporarily
   gsap.set(panels, { opacity: 0 })
+
+  setupStatsAnimations();
 }
 
-// ── Resize ───────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  const aspect = window.innerWidth / window.innerHeight;
+function setupStatsAnimations() {
+  const statItems = document.querySelectorAll('.stat-item');
+  if (!statItems.length) return;
+
+  // Guardar referências globais para o loop animate()
+  window._statItemEls = Array.from(statItems);
+  window._smoothScrollVelocity = 0;
+
+  statItems.forEach(item => {
+    const contentHtml = item.innerHTML;
+    item.innerHTML = '';
+    
+    const numSlices = 4;
+    for (let i = 0; i < numSlices; i++) {
+      const slice = document.createElement('div');
+      slice.className = 'stat-slice';
+      
+      slice.innerHTML = contentHtml;
+      
+      // Recorta a fatia horizontalmente
+      const top = (i / numSlices) * 100;
+      const bottom = 100 - ((i + 1) / numSlices) * 100;
+      slice.style.clipPath = `inset(${top}% 0 ${bottom}% 0)`;
+      
+      item.appendChild(slice);
+    }
+    
+    // Animação de entrada: todas da ESQUERDA, stagger de BAIXO pra CIMA
+    const slices = item.querySelectorAll('.stat-slice');
+    const slicesArray = Array.from(slices);
+    
+    // Inverter a ordem: a última fatia (mais abaixo) entra primeiro
+    const reversedSlices = [...slicesArray].reverse();
+    
+    reversedSlices.forEach(slice => {
+      gsap.set(slice, { x: '-120%', opacity: 0 });
+    });
+    
+    gsap.to(reversedSlices, {
+      scrollTrigger: {
+        trigger: item,
+        start: 'top 50%',
+        end: 'top 20%',
+        scrub: 1.5
+      },
+      x: '0%',
+      opacity: 1,
+      stagger: 0.08,
+      ease: 'power3.out'
+    });
+  });
+}
+
+// ── Resize (blindado contra pinch zoom) ───────────────────────────────
+let lastKnownLayoutWidth = window.innerWidth;
+let lastKnownLayoutHeight = window.innerHeight;
+
+function handleResize() {
+  // Detectar se é zoom de pinch (não resize real)
+  const isZoom = window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.01;
+  if (isZoom) return; // Ignorar zoom — não recalcular nada
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  
+  // Verificar se houve mudança real de dimensão (pelo menos 20px)
+  // Isso filtra micro-resizes que Safari dispara durante scroll (address bar)
+  if (Math.abs(w - lastKnownLayoutWidth) < 20 && Math.abs(h - lastKnownLayoutHeight) < 20) return;
+  
+  lastKnownLayoutWidth = w;
+  lastKnownLayoutHeight = h;
+
+  const aspect = w / h;
   camera.aspect = aspect;
   
   // Maintain constant horizontal FOV relative to 16:9 (1.7777)
-  // This ensures the 3D model scales with screen width (like vw units), 
-  // preventing it from shrinking when the window is flattened vertically.
   camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / aspect) ) * 360 / Math.PI;
   
   camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
-})
+  renderer.setSize(w, h)
+  renderer.setPixelRatio(isMobileDevice ? 1.0 : Math.min(window.devicePixelRatio, 1.5))
+}
+
+window.addEventListener('resize', handleResize)
 
 // ── Projeção do centro da tela no espaço 3D ──────────────────────────
 function getScreenCenterWorld(targetZ) {
@@ -1240,19 +1333,47 @@ const tiltEuler = new THREE.Euler()
 const lastGearQuat = new THREE.Quaternion()
 let firstFrames = 30
 
+// Pre-allocated vectors for render loop (avoids GC pressure on mobile)
+const _cameraDirection = new THREE.Vector3()
+const _gearToCam = new THREE.Vector3()
+const _targetCamPos = new THREE.Vector3()
+
 function animate() {
   requestAnimationFrame(animate)
   timer.update()
   const delta = timer.getDelta()
 
-  // Smooth scroll interpolation (frame-rate independent to avoid jitter)
-  // Mobile: read scrollY directly every frame (iOS scroll events fire at low Hz, but scrollY updates every frame)
-  if (window.innerWidth < 768) {
-    scrollTarget = window.scrollY;
-    scrollCurrent += (scrollTarget - scrollCurrent) * 0.6; // Light smoothing to avoid micro-jitter
-  } else {
-    scrollCurrent += (scrollTarget - scrollCurrent) * (1 - Math.exp(-8 * delta))
+  // Lenis fornece scroll suavizado a 60fps — usar diretamente
+  scrollCurrent = lenis.scroll
+
+  // --- Lógica para Perspectiva 3D e Distorção Curva (Stats) ---
+  const scrollVelocity = scrollCurrent - (window._lastScrollForSkew || scrollCurrent);
+  window._lastScrollForSkew = scrollCurrent;
+  
+  // Suavizar a velocidade de scroll com lerp (igual à imagem do Rodrigo)
+  if (typeof window._smoothScrollVelocity === 'undefined') window._smoothScrollVelocity = 0;
+  window._smoothScrollVelocity += (scrollVelocity - window._smoothScrollVelocity) * 0.08;
+  
+  // Distorção curva — rotateX baseado na velocidade suavizada
+  const distortRaw = window._smoothScrollVelocity * -0.08;
+  const clampedDistort = Math.max(-12, Math.min(12, distortRaw));
+  
+  // Perspectiva do mouse (igual à foto do Rodrigo: rotateX/Y suaves)
+  const mouseRotY = mouseTiltCurrent.x * 8;
+  const mouseRotX = -mouseTiltCurrent.y * 8;
+  
+  // Intensidade da aberração: proporcional ao movimento do mouse + scroll velocity
+  const aberrationStrength = Math.abs(mouseTiltCurrent.x) + Math.abs(window._smoothScrollVelocity) * 0.02;
+  const clampedAberration = Math.min(aberrationStrength, 1.5);
+  
+  // Aplicar nos retângulos de estatísticas
+  if (window._statItemEls) {
+    window._statItemEls.forEach(item => {
+      item.style.transform = `perspective(800px) rotateX(${(mouseRotX + clampedDistort).toFixed(2)}deg) rotateY(${mouseRotY.toFixed(2)}deg)`;
+      item.style.setProperty('--aberration', clampedAberration.toFixed(3));
+    });
   }
+  // ---------------------------------------------------------
 
   // Update scroll indicator visibility
   if (Math.abs(scrollCurrent) > 50) {
@@ -1369,25 +1490,24 @@ function animate() {
 
     // 5. Camera Zoom (Phase 2)
     // Find direction from camera base position to gear position
-    const cameraDirection = new THREE.Vector3();
-    camera.getWorldDirection(cameraDirection);
+    camera.getWorldDirection(_cameraDirection);
 
     // Distance from camera base to gear center
-    const gearToCam = new THREE.Vector3().subVectors(gearMesh.position, cameraBasePos);
-    const baseDistance = gearToCam.dot(cameraDirection);
+    _gearToCam.subVectors(gearMesh.position, cameraBasePos);
+    const baseDistance = _gearToCam.dot(_cameraDirection);
 
     // Zoom distance: move camera past the gear by an overshoot value
     const overshoot = 0.8;
     const zoomDistance = (baseDistance + overshoot) * easeZoom;
 
     // Smoothly interpolate camera position
-    const targetCamPos = new THREE.Vector3()
+    _targetCamPos
       .copy(cameraBasePos)
-      .addScaledVector(cameraDirection, zoomDistance);
+      .addScaledVector(_cameraDirection, zoomDistance);
 
-    camera.position.x += (targetCamPos.x - camera.position.x) * lerpFactor;
-    camera.position.y += (targetCamPos.y - camera.position.y) * lerpFactor;
-    camera.position.z += (targetCamPos.z - camera.position.z) * lerpFactor;
+    camera.position.x += (_targetCamPos.x - camera.position.x) * lerpFactor;
+    camera.position.y += (_targetCamPos.y - camera.position.y) * lerpFactor;
+    camera.position.z += (_targetCamPos.z - camera.position.z) * lerpFactor;
 
     // Check if gear or camera actually moved to trigger lazy shadow updates
     const posDiff = Math.abs(gearMesh.position.x - targetX);
@@ -1491,11 +1611,7 @@ function animate() {
     // Sync third-fold visual scrolling with the smoothed scrollCurrent
     const thirdFoldTextWrapper = document.getElementById('third-fold-text');
     if (thirdFoldTextWrapper) {
-      // The browser natively scrolls the div by scrollTarget (window.scrollY).
-      // We want it to visually scroll by scrollCurrent.
-      // We apply this to the text wrapper, NOT the fold container, to prevent the document height from expanding and causing scroll bugs.
-      // const scrollDiff = scrollTarget - scrollCurrent;
-      // thirdFoldTextWrapper.style.transform = `translateY(${scrollDiff}px)`;
+      // O Lenis já gerencia scroll suavizado, então não precisamos de compensar scrollDiff
       thirdFoldTextWrapper.style.transform = `translateY(0px)`;
     }
   }
@@ -1523,6 +1639,10 @@ animate()
 
 // ── Responsive Cache ──────────────────────
 function updateResponsiveCache() {
+  // Mesma proteção contra zoom do handleResize
+  const isZoom = window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.01;
+  if (isZoom) return;
+  
   cachedInnerHeight = window.innerHeight;
   if (typeof gearMesh !== 'undefined' && gearMesh) {
     const dist = cameraBasePos.z - gearMesh.position.z;
