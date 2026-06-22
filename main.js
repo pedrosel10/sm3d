@@ -85,7 +85,7 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'high-performance',
 })
 const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
+renderer.setPixelRatio(isMobileDevice ? 0.8 : Math.min(window.devicePixelRatio, 2))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
@@ -1544,7 +1544,7 @@ function handleResize() {
   
   camera.updateProjectionMatrix()
   renderer.setSize(w, stableHeight)
-  renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
+  renderer.setPixelRatio(isMobileDevice ? 0.8 : Math.min(window.devicePixelRatio, 2))
 }
 
 window.addEventListener('resize', handleResize)
