@@ -1141,8 +1141,17 @@ class ParticleText {
     
     this.canvas.style.opacity = '1'
     
+    let ptLastWidth = window.innerWidth;
+    let ptResizeTimeout;
     window.addEventListener('resize', () => {
-      this.setup(true)
+      // Ignorar redimensionamentos puramente verticais (típico no mobile com barra de endereço)
+      if (window.innerWidth !== ptLastWidth) {
+        ptLastWidth = window.innerWidth;
+        clearTimeout(ptResizeTimeout);
+        ptResizeTimeout = setTimeout(() => {
+          this.setup(true);
+        }, 250);
+      }
     })
 
     this.animate()
