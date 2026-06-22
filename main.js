@@ -1821,27 +1821,30 @@ function animate() {
         const smooth1 = easeHTML1 * easeHTML1 * (3 - 2 * easeHTML1);
         const smooth2 = easeHTML2 * easeHTML2 * (3 - 2 * easeHTML2);
 
-        // Deslizar o HTML junto com a animação de fatias 3D
-        const slideX1 = -100 * (1 - smooth1);
-        const slideX2 = -100 * (1 - smooth2);
+        // Deslizar o HTML junto com a animação de fatias 3D. 
+        // O valor exato em pixels para o slide world de -3.5 unidades:
+        const slideXPx1 = (-3.5 * (1 - smooth1) * currentScale) / worldUnitsPerPixel;
+        const slideXPx2 = (-3.5 * (1 - smooth2) * currentScale) / worldUnitsPerPixel;
+
+        // Perspectiva perfeita para sincronizar o tilt 3D CSS com o ThreeJS
+        const cameraDist = camera.position.z - (-6.0);
+        const perspectivePx = cameraDist / worldUnitsPerPixel;
 
         // Aplicar estilos Card 1
         htmlC1.style.width = `${htmlCardWidth}px`;
         htmlC1.style.height = `${htmlCardHeight}px`;
         htmlC1.style.left = `${c1Coords.x - htmlCardWidth/2}px`;
         htmlC1.style.top = `${c1Coords.y - htmlCardHeight/2}px`;
-        htmlC1.style.fontSize = `${htmlCardWidth * 0.05}px`; // Fonte responsiva baseada na largura do card!
         htmlC1.style.opacity = smooth1;
-        htmlC1.style.transform = `perspective(1000px) translate3d(${slideX1}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+        htmlC1.style.transform = `perspective(${perspectivePx}px) translate3d(${slideXPx1}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
 
         // Aplicar estilos Card 2
         htmlC2.style.width = `${htmlCardWidth}px`;
         htmlC2.style.height = `${htmlCardHeight}px`;
         htmlC2.style.left = `${c2Coords.x - htmlCardWidth/2}px`;
         htmlC2.style.top = `${c2Coords.y - htmlCardHeight/2}px`;
-        htmlC2.style.fontSize = `${htmlCardWidth * 0.05}px`;
         htmlC2.style.opacity = smooth2;
-        htmlC2.style.transform = `perspective(1000px) translate3d(${slideX2}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+        htmlC2.style.transform = `perspective(${perspectivePx}px) translate3d(${slideXPx2}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
       }
 
       // Update the HTML signature overlay so it matches the 3D tilt of the image
