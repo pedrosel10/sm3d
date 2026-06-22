@@ -519,7 +519,7 @@ const cardShaderMaterial = new THREE.ShaderMaterial({
 });
 
 // ── Texturas dos Cards 3D geradas dinamicamente via Canvas ────────────────
-function createCardTexture(textTop, bigNumber, textSmall) {
+function createCardTexture() {
   const texScale = isMobileDevice ? 1 : 2;
   const canvas = document.createElement('canvas');
   // Resolução dinâmica para economizar memória pesada no mobile
@@ -559,52 +559,6 @@ function createCardTexture(textTop, bigNumber, textSmall) {
     ctx.moveTo(pos[0], pos[1] - chSize/2); ctx.lineTo(pos[0], pos[1] + chSize/2);
   });
   ctx.stroke();
-  // ------------------------------------------
-  
-  ctx.fillStyle = '#ffffff';
-  const padX = 140 * texScale;
-  const padY = 160 * texScale;
-  
-  // Desenho do Texto Superior
-  ctx.font = `300 ${60 * texScale}px Inter, sans-serif`; 
-  const maxWidth = canvas.width - padX * 2;
-  
-  const words = textTop.split(' ');
-  let line = '';
-  let y = padY + 30 * texScale;
-  const lineHeight = 85 * texScale;
-  
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > maxWidth && i > 0) {
-      ctx.fillText(line, padX, y);
-      line = words[i] + ' ';
-      y += lineHeight;
-    } else {
-      line = testLine;
-    }
-  }
-  ctx.fillText(line, padX, y);
-  
-  // Número Gigante
-  const bottomY = canvas.height - padY + 60 * texScale;
-  ctx.font = `600 ${340 * texScale}px Inter, sans-serif`; 
-  
-  // Pequeno ajuste negativo de X para números muito grandes não ficarem soltos
-  ctx.fillText(bigNumber, padX - 20 * texScale, bottomY); 
-  
-  const bigNumWidth = ctx.measureText(bigNumber).width;
-  
-  // Texto pequeno ao lado
-  ctx.font = `400 ${32.5 * texScale}px Inter, sans-serif`;
-  const smallLines = textSmall.split('\\n');
-  let smallY = bottomY - 70 * texScale; 
-  const smallX = padX + bigNumWidth + 20 * texScale;
-  
-  smallLines.forEach((l, index) => {
-    ctx.fillText(l, smallX, smallY + index * 42.5 * texScale);
-  });
   
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -663,15 +617,13 @@ function buildGroupSlices(group, slicesArray, texture, isCard = false) {
 }
 
 // Criar texturas e grupos para os dois cards
-const card1TextTop = "Mais de uma década atuando com PPCI nos mostrou que um projeto eficiente vai além de cumprir normas e aprovar documentos. A qualidade está em funcionar na prática: com clareza, viabilidade de execução e alinhamento com a realidade do empreendimento.";
-const card1Texture = createCardTexture(card1TextTop, "18", "anos de\\nexperiência");
+const card1Texture = createCardTexture();
 if (renderer.capabilities.getMaxAnisotropy) {
   card1Texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 }
 buildGroupSlices(card1Group, card1Slices, card1Texture, true);
 
-const card2TextTop = "Com essa mentalidade, ampliamos nossa atuação para projetos completos de Engenharia Civil. Mesmo padrão de responsabilidade e controle, agora com uma visão mais ampla de obra, antecipando conflitos e organizando cada etapa com método. Atendemos Canela, Gramado e todo o Rio Grande do Sul.";
-const card2Texture = createCardTexture(card2TextTop, "+1K", "clientes\\natendidos");
+const card2Texture = createCardTexture();
 if (renderer.capabilities.getMaxAnisotropy) {
   card2Texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 }
@@ -1841,6 +1793,56 @@ function animate() {
 
       card2Group.rotation.y = mouseTiltCurrent.x * 0.12;
       card2Group.rotation.x = -mouseTiltCurrent.y * 0.12;
+
+      // Sincronizar os textos HTML dos cards por cima dos cards 3D
+      const htmlC1 = document.getElementById('html-card-1');
+      const htmlC2 = document.getElementById('html-card-2');
+      
+      if (htmlC1 && htmlC2) {
+        // Calcular o tamanho exato do card em pixels na tela
+        const htmlCardWidth = (1.17 * currentScale) / worldUnitsPerPixel;
+        const htmlCardHeight = (1.6 * currentScale) / worldUnitsPerPixel;
+        
+        const getScreenCoords = (worldPos) => {
+          const projected = worldPos.clone().project(camera);
+          return {
+            x: (projected.x * 0.5 + 0.5) * window.innerWidth,
+            y: -(projected.y * 0.5 - 0.5) * window.innerHeight
+          };
+        };
+        
+        const c1Coords = getScreenCoords(card1Group.position);
+        const c2Coords = getScreenCoords(card2Group.position);
+
+        // Calcular a opacidade baseada no progresso (tZoom1 e tZoom2)
+        const easeHTML1 = Math.max(0, Math.min((tZoom1 - 0.38) / 0.40, 1));
+        const easeHTML2 = Math.max(0, Math.min((tZoom2 - 0.38) / 0.40, 1));
+        
+        const smooth1 = easeHTML1 * easeHTML1 * (3 - 2 * easeHTML1);
+        const smooth2 = easeHTML2 * easeHTML2 * (3 - 2 * easeHTML2);
+
+        // Deslizar o HTML junto com a animação de fatias 3D
+        const slideX1 = -100 * (1 - smooth1);
+        const slideX2 = -100 * (1 - smooth2);
+
+        // Aplicar estilos Card 1
+        htmlC1.style.width = `${htmlCardWidth}px`;
+        htmlC1.style.height = `${htmlCardHeight}px`;
+        htmlC1.style.left = `${c1Coords.x - htmlCardWidth/2}px`;
+        htmlC1.style.top = `${c1Coords.y - htmlCardHeight/2}px`;
+        htmlC1.style.fontSize = `${htmlCardWidth * 0.05}px`; // Fonte responsiva baseada na largura do card!
+        htmlC1.style.opacity = smooth1;
+        htmlC1.style.transform = `perspective(1000px) translate3d(${slideX1}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+
+        // Aplicar estilos Card 2
+        htmlC2.style.width = `${htmlCardWidth}px`;
+        htmlC2.style.height = `${htmlCardHeight}px`;
+        htmlC2.style.left = `${c2Coords.x - htmlCardWidth/2}px`;
+        htmlC2.style.top = `${c2Coords.y - htmlCardHeight/2}px`;
+        htmlC2.style.fontSize = `${htmlCardWidth * 0.05}px`;
+        htmlC2.style.opacity = smooth2;
+        htmlC2.style.transform = `perspective(1000px) translate3d(${slideX2}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+      }
 
       // Update the HTML signature overlay so it matches the 3D tilt of the image
       const sigOverlay = document.getElementById('signature-overlay');
