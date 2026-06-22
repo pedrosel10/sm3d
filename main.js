@@ -1403,7 +1403,8 @@ async function playHeroAnimations() {
     const h2Words = splitTextToWords(h2)
     
     // reset opacities if looping
-    gsap.set([topText, scrollInd, ampersand], { opacity: 0 });
+    const targets = [topText, scrollInd, ampersand].filter(Boolean);
+    if (targets.length) gsap.set(targets, { opacity: 0 });
     
     if (heroTimeline) heroTimeline.kill();
     heroTimeline = gsap.timeline()
@@ -1440,15 +1441,8 @@ async function playHeroAnimations() {
 }
 
 function setupScrollAnimations() {
-  const panel1 = document.querySelector('.info-panel[data-panel="1"]')
-  const panel2 = document.querySelector('.info-panel[data-panel="2"]')
-  const panel3 = document.querySelector('.info-panel[data-panel="3"]')
-  const panels = [panel1, panel2, panel3]
-
-  // Hide panels temporarily
-  gsap.set(panels, { opacity: 0 })
-
-  setupStatsAnimations();
+  // OBSOLETO: painéis HTML removidos em favor dos cards WebGL.
+  // setupStatsAnimations();
 }
 
 function setupStatsAnimations() {
