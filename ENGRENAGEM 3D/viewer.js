@@ -21,8 +21,10 @@ const renderer = new THREE.WebGLRenderer({
   alpha: true, // Fundo transparente para ver a cor do CSS
   powerPreference: "high-performance" // Força o uso da GPU dedicada
 })
-// Removemos a limitação de "Math.min" para usar o pixelRatio nativo (ex: 3x em iPhones e MacBooks Retina)
-renderer.setPixelRatio(window.devicePixelRatio)
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+// Limitamos o pixelRatio para evitar crashes em dispositivos móveis (especialmente iOS)
+renderer.setPixelRatio(isMobileDevice ? 1.0 : Math.min(window.devicePixelRatio, 1.5))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap // Melhor suavização de sombras
@@ -51,7 +53,7 @@ scene.add(ambientLight)
 const keyLight = new THREE.DirectionalLight(0xffffff, 3.73)
 keyLight.position.set(-2.6, 0.8, 8.2)
 keyLight.castShadow = true
-keyLight.shadow.mapSize.set(4096, 4096) // Sombras em 4K
+keyLight.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048) // Sombras ajustadas para evitar crash no iOS
 keyLight.shadow.bias = -0.0026
 keyLight.shadow.normalBias = 0.04
 keyLight.shadow.radius = 3.5
@@ -152,7 +154,7 @@ gltfLoader.load(
 
         if (light.isDirectionalLight || light.isSpotLight) {
           light.castShadow = true
-          light.shadow.mapSize.set(4096, 4096) // Sombras do GLB em 4K
+          light.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048) // Sombras ajustadas para evitar crash no iOS
           light.shadow.bias = -0.0002
           light.shadow.normalBias = 0.02
           light.shadow.radius = 3.0
