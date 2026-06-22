@@ -85,7 +85,7 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'high-performance',
 })
 const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-renderer.setPixelRatio(isMobileDevice ? 0.8 : Math.min(window.devicePixelRatio, 2))
+renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
@@ -520,10 +520,11 @@ const cardShaderMaterial = new THREE.ShaderMaterial({
 
 // ── Texturas dos Cards 3D geradas dinamicamente via Canvas ────────────────
 function createCardTexture(textTop, bigNumber, textSmall) {
+  const texScale = isMobileDevice ? 1 : 2;
   const canvas = document.createElement('canvas');
-  // Alta resolução para manter a nitidez do texto no WebGL
-  canvas.width = 1170 * 2;
-  canvas.height = 1600 * 2;
+  // Resolução dinâmica para economizar memória pesada no mobile
+  canvas.width = 1170 * texScale;
+  canvas.height = 1600 * texScale;
   const ctx = canvas.getContext('2d');
   
   // Fundo Azul exato (#0022FF)
@@ -532,8 +533,8 @@ function createCardTexture(textTop, bigNumber, textSmall) {
   
   // -- EFEITO BLUEPRINT (GRID DE ENGENHARIA) --
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-  ctx.lineWidth = 2;
-  const gridSize = 120;
+  ctx.lineWidth = 1 * texScale;
+  const gridSize = 60 * texScale;
   ctx.beginPath();
   for (let x = 0; x < canvas.width; x += gridSize) {
     ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
@@ -545,9 +546,9 @@ function createCardTexture(textTop, bigNumber, textSmall) {
 
   // Cruzes de registro (estética técnica)
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-  ctx.lineWidth = 4;
-  const chSize = 50;
-  const margin = 100;
+  ctx.lineWidth = 2 * texScale;
+  const chSize = 25 * texScale;
+  const margin = 50 * texScale;
   const positions = [
     [margin, margin], [canvas.width - margin, margin],
     [margin, canvas.height - margin], [canvas.width - margin, canvas.height - margin]
@@ -561,17 +562,17 @@ function createCardTexture(textTop, bigNumber, textSmall) {
   // ------------------------------------------
   
   ctx.fillStyle = '#ffffff';
-  const padX = 140 * 2;
-  const padY = 160 * 2;
+  const padX = 140 * texScale;
+  const padY = 160 * texScale;
   
   // Desenho do Texto Superior
-  ctx.font = '300 120px Inter, sans-serif'; // Fonte aumentada
+  ctx.font = `300 ${60 * texScale}px Inter, sans-serif`; 
   const maxWidth = canvas.width - padX * 2;
   
   const words = textTop.split(' ');
   let line = '';
-  let y = padY + 60;
-  const lineHeight = 170; // Line height ajustado para a nova fonte
+  let y = padY + 30 * texScale;
+  const lineHeight = 85 * texScale;
   
   for (let i = 0; i < words.length; i++) {
     const testLine = line + words[i] + ' ';
@@ -587,22 +588,22 @@ function createCardTexture(textTop, bigNumber, textSmall) {
   ctx.fillText(line, padX, y);
   
   // Número Gigante
-  const bottomY = canvas.height - padY + 120;
-  ctx.font = '600 680px Inter, sans-serif'; // Ajustado para ficar igual ao print
+  const bottomY = canvas.height - padY + 60 * texScale;
+  ctx.font = `600 ${340 * texScale}px Inter, sans-serif`; 
   
   // Pequeno ajuste negativo de X para números muito grandes não ficarem soltos
-  ctx.fillText(bigNumber, padX - 40, bottomY); 
+  ctx.fillText(bigNumber, padX - 20 * texScale, bottomY); 
   
   const bigNumWidth = ctx.measureText(bigNumber).width;
   
   // Texto pequeno ao lado
-  ctx.font = '400 65px Inter, sans-serif';
+  ctx.font = `400 ${32.5 * texScale}px Inter, sans-serif`;
   const smallLines = textSmall.split('\\n');
-  let smallY = bottomY - 140; 
-  const smallX = padX + bigNumWidth + 40;
+  let smallY = bottomY - 70 * texScale; 
+  const smallX = padX + bigNumWidth + 20 * texScale;
   
   smallLines.forEach((l, index) => {
-    ctx.fillText(l, smallX, smallY + index * 85);
+    ctx.fillText(l, smallX, smallY + index * 42.5 * texScale);
   });
   
   const texture = new THREE.CanvasTexture(canvas);
@@ -1545,7 +1546,7 @@ function handleResize() {
   
   camera.updateProjectionMatrix()
   renderer.setSize(w, stableHeight)
-  renderer.setPixelRatio(isMobileDevice ? 0.8 : Math.min(window.devicePixelRatio, 2))
+  renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
 }
 
 window.addEventListener('resize', handleResize)
