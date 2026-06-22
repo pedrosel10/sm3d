@@ -228,6 +228,12 @@ let mixer = null
 let imageGroup = null
 let sliceMeshes = [];
 
+let card1Group = null;
+let card1Slices = [];
+
+let card2Group = null;
+let card2Slices = [];
+
 // Gear position & rotation state
 let gearOriginalX = 0
 let gearOriginalY = 0
@@ -449,48 +455,231 @@ const imageShaderMaterial = new THREE.ShaderMaterial({
   depthWrite: false
 });
 
-// Inicialização do grupo da imagem tridimensional
+const cardFragmentShader = `
+  varying vec2 vUv;
+  uniform sampler2D uTexture;
+  uniform float uOpacity;
+  uniform float uAberrationStrength;
+  uniform vec2 uMouseTilt;
+
+  // Função para gerar ruído pseudo-aleatório
+  float rand(vec2 co){
+      return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+  }
+
+  void main() {
+    vec2 centerDist = vUv - vec2(0.5);
+    float edgeFactor = dot(centerDist, centerDist);
+    float tiltFactor = length(uMouseTilt);
+    
+    // Aberração cromática que responde às bordas e à inclinação do mouse
+    float shift = uAberrationStrength * (edgeFactor * 1.5 + tiltFactor * 0.7);
+    
+    // Tira o efeito de aberração cromática dos textos (metade superior do canvas)
+    // Limiar reduzido para 0.25 para abranger todas as linhas do texto comprido (que cresceu)
+    if (vUv.y > 0.25) {
+      shift = 0.0;
+    }
+    
+    vec2 uvR = vUv + vec2(shift, 0.0);
+    vec2 uvG = vUv;
+    vec2 uvB = vUv - vec2(shift, 0.0);
+    
+    float r = texture2D(uTexture, clamp(uvR, 0.0, 1.0)).r;
+    float g = texture2D(uTexture, clamp(uvG, 0.0, 1.0)).g;
+    float b = texture2D(uTexture, clamp(uvB, 0.0, 1.0)).b;
+    float a = texture2D(uTexture, uvG).a;
+    
+    vec3 color = vec3(r, g, b);
+    
+    // Efeito 1: Film Grain (Ruído) sutil
+    float noise = (rand(vUv * 2500.0) - 0.5) * 0.06;
+    color += noise;
+    
+    // Efeito 2: Translucidez seletiva (Glassmorphism)
+    // Se a cor for próxima do branco (texto), mantemos opaco. O fundo azul fica translúcido.
+    float textMask = smoothstep(0.2, 0.8, r * g);
+    float finalAlpha = a * uOpacity * mix(0.85, 1.0, textMask);
+    
+    gl_FragColor = vec4(color, finalAlpha);
+  }
+`;
+
+const cardShaderMaterial = new THREE.ShaderMaterial({
+  vertexShader: imageVertexShader,
+  fragmentShader: cardFragmentShader,
+  uniforms: {
+    uTexture: { value: null },
+    uOpacity: { value: 0.0 },
+    uAberrationStrength: { value: 0.024 },
+    uMouseTilt: { value: new THREE.Vector2(0, 0) }
+  },
+  transparent: true,
+  depthWrite: false
+});
+
+// ── Texturas dos Cards 3D geradas dinamicamente via Canvas ────────────────
+function createCardTexture(textTop, bigNumber, textSmall) {
+  const canvas = document.createElement('canvas');
+  // Alta resolução para manter a nitidez do texto no WebGL
+  canvas.width = 1170 * 2;
+  canvas.height = 1600 * 2;
+  const ctx = canvas.getContext('2d');
+  
+  // Fundo Azul exato (#0022FF)
+  ctx.fillStyle = '#0022FF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // -- EFEITO BLUEPRINT (GRID DE ENGENHARIA) --
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+  ctx.lineWidth = 2;
+  const gridSize = 120;
+  ctx.beginPath();
+  for (let x = 0; x < canvas.width; x += gridSize) {
+    ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+  }
+  for (let y = 0; y < canvas.height; y += gridSize) {
+    ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+  }
+  ctx.stroke();
+
+  // Cruzes de registro (estética técnica)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.lineWidth = 4;
+  const chSize = 50;
+  const margin = 100;
+  const positions = [
+    [margin, margin], [canvas.width - margin, margin],
+    [margin, canvas.height - margin], [canvas.width - margin, canvas.height - margin]
+  ];
+  ctx.beginPath();
+  positions.forEach(pos => {
+    ctx.moveTo(pos[0] - chSize/2, pos[1]); ctx.lineTo(pos[0] + chSize/2, pos[1]);
+    ctx.moveTo(pos[0], pos[1] - chSize/2); ctx.lineTo(pos[0], pos[1] + chSize/2);
+  });
+  ctx.stroke();
+  // ------------------------------------------
+  
+  ctx.fillStyle = '#ffffff';
+  const padX = 140 * 2;
+  const padY = 160 * 2;
+  
+  // Desenho do Texto Superior
+  ctx.font = '300 120px Inter, sans-serif'; // Fonte aumentada
+  const maxWidth = canvas.width - padX * 2;
+  
+  const words = textTop.split(' ');
+  let line = '';
+  let y = padY + 60;
+  const lineHeight = 170; // Line height ajustado para a nova fonte
+  
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && i > 0) {
+      ctx.fillText(line, padX, y);
+      line = words[i] + ' ';
+      y += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, padX, y);
+  
+  // Número Gigante
+  const bottomY = canvas.height - padY + 120;
+  ctx.font = '600 680px Inter, sans-serif'; // Ajustado para ficar igual ao print
+  
+  // Pequeno ajuste negativo de X para números muito grandes não ficarem soltos
+  ctx.fillText(bigNumber, padX - 40, bottomY); 
+  
+  const bigNumWidth = ctx.measureText(bigNumber).width;
+  
+  // Texto pequeno ao lado
+  ctx.font = '400 65px Inter, sans-serif';
+  const smallLines = textSmall.split('\\n');
+  let smallY = bottomY - 140; 
+  const smallX = padX + bigNumWidth + 40;
+  
+  smallLines.forEach((l, index) => {
+    ctx.fillText(l, smallX, smallY + index * 85);
+  });
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
+// Inicialização dos grupos da imagem e dos cards tridimensionais
 imageGroup = new THREE.Group();
 imageGroup.position.set(0, 1.5, -6.0); // Posicionado atrás do plano da engrenagem
 scene.add(imageGroup);
+
+card1Group = new THREE.Group();
+card1Group.position.set(0, 1.5, -6.0);
+scene.add(card1Group);
+
+card2Group = new THREE.Group();
+card2Group.position.set(0, 1.5, -6.0);
+scene.add(card2Group);
+
+function buildGroupSlices(group, slicesArray, texture, isCard = false) {
+  // Construir a malha base com escala 1.0. 
+  // O dimensionamento responsivo exato (ex: 330px no mobile) será feito via .scale no loop animate()
+  const imgScale = 1.0;
+  const totalHeight = 1.6 * imgScale;
+  const totalWidth = 1.17 * imgScale;
+  const numSlices = 10;
+  const sliceHeight = totalHeight / numSlices;
+  
+  for (let i = 0; i < numSlices; i++) {
+    const geom = new THREE.PlaneGeometry(totalWidth, sliceHeight);
+    
+    const uvAttr = geom.attributes.uv;
+    for (let j = 0; j < uvAttr.count; j++) {
+      let v = uvAttr.getY(j);
+      let newV = (i + v) / numSlices;
+      uvAttr.setY(j, newV);
+    }
+    geom.attributes.uv.needsUpdate = true;
+    
+    const mat = isCard ? cardShaderMaterial.clone() : imageShaderMaterial.clone();
+    mat.uniforms.uTexture.value = texture;
+    
+    const mesh = new THREE.Mesh(geom, mat);
+    const localY = -totalHeight / 2 + i * sliceHeight + sliceHeight / 2;
+    mesh.position.set(0, localY, 0);
+    
+    group.add(mesh);
+    slicesArray.push({
+      mesh: mesh,
+      localY: localY,
+      index: i
+    });
+  }
+}
+
+// Criar texturas e grupos para os dois cards
+const card1TextTop = "Mais de uma década atuando com PPCI nos mostrou que um projeto eficiente vai além de cumprir normas e aprovar documentos. A qualidade está em funcionar na prática: com clareza, viabilidade de execução e alinhamento com a realidade do empreendimento.";
+const card1Texture = createCardTexture(card1TextTop, "18", "anos de\\nexperiência");
+if (renderer.capabilities.getMaxAnisotropy) {
+  card1Texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+}
+buildGroupSlices(card1Group, card1Slices, card1Texture, true);
+
+const card2TextTop = "Com essa mentalidade, ampliamos nossa atuação para projetos completos de Engenharia Civil. Mesmo padrão de responsabilidade e controle, agora com uma visão mais ampla de obra, antecipando conflitos e organizando cada etapa com método. Atendemos Canela, Gramado e todo o Rio Grande do Sul.";
+const card2Texture = createCardTexture(card2TextTop, "+1K", "clientes\\natendidos");
+if (renderer.capabilities.getMaxAnisotropy) {
+  card2Texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+}
+buildGroupSlices(card2Group, card2Slices, card2Texture, true);
 
 const imageTexture = textureLoader.load(
   './foto_rodrigo_1.webp',
   (texture) => {
     texture.colorSpace = THREE.SRGBColorSpace;
-    
-    const isMobileImage = window.innerWidth <= 768;
-    const imgScale = isMobileImage ? 1.6 : 1.0;
-    const totalHeight = 1.6 * imgScale;
-    const totalWidth = 1.17 * imgScale;
-    const numSlices = 10;
-    const sliceHeight = totalHeight / numSlices;
-    
-    for (let i = 0; i < numSlices; i++) {
-      const geom = new THREE.PlaneGeometry(totalWidth, sliceHeight);
-      
-      const uvAttr = geom.attributes.uv;
-      for (let j = 0; j < uvAttr.count; j++) {
-        let v = uvAttr.getY(j);
-        let newV = (i + v) / numSlices;
-        uvAttr.setY(j, newV);
-      }
-      geom.attributes.uv.needsUpdate = true;
-      
-      const mat = imageShaderMaterial.clone();
-      mat.uniforms.uTexture.value = texture;
-      
-      const mesh = new THREE.Mesh(geom, mat);
-      const localY = -totalHeight / 2 + i * sliceHeight + sliceHeight / 2;
-      mesh.position.set(0, localY, 0);
-      
-      imageGroup.add(mesh);
-      sliceMeshes.push({
-        mesh: mesh,
-        localY: localY,
-        index: i
-      });
-    }
+    buildGroupSlices(imageGroup, sliceMeshes, texture);
     console.log('📷 Loaded and sliced foto_rodrigo_1.webp successfully.');
   },
   undefined,
@@ -1567,47 +1756,91 @@ function animate() {
       lastGearQuat.copy(gearMesh.quaternion);
     }
 
-    // 6. Animador das fatias da foto do Rodrigo (Fase 2 de scroll)
+    // 6. Animador das fatias da foto e dos cards (Fase 2 de scroll)
     if (imageGroup) {
       const targetCenter = getScreenCenterWorld(-6.0);
       
-      // Scroll the image UP if we scroll past the second fold (like a normal page)
+      // Scroll the images UP if we scroll past the second fold
       const extraScroll = Math.max(0, scrollCurrent - zoomEnd);
       const dist = camera.position.z - (-6.0);
       const fovRad = THREE.MathUtils.degToRad(camera.fov / 2);
       const visibleHeightAtZ = 2 * dist * Math.tan(fovRad);
       const worldUnitsPerPixel = visibleHeightAtZ / cachedInnerHeight;
       
-      // Move up in 3D space
       targetCenter.y += extraScroll * worldUnitsPerPixel;
       
       imageGroup.position.copy(targetCenter);
+      
+      // Dimensionamento Dinâmico (Mobile = 330px de largura)
+      const isMobileImage = window.innerWidth <= 768;
+      let currentScale = 1.0;
+      
+      if (isMobileImage) {
+        // Converter 330px para unidades do mundo 3D
+        const targetWorldWidth = 330 * worldUnitsPerPixel;
+        currentScale = targetWorldWidth / 1.17; // 1.17 é a largura base não-escalada
+      }
+      
+      imageGroup.scale.setScalar(currentScale);
+      card1Group.scale.setScalar(currentScale);
+      card2Group.scale.setScalar(currentScale);
+      
+      // Offset dimensions
+      const cardHeight = 1.6 * currentScale;
+      const gap = 0.4 * currentScale;
+      const totalOffset = cardHeight + gap;
+      
+      card1Group.position.copy(targetCenter);
+      card1Group.position.y -= totalOffset;
+      
+      card2Group.position.copy(targetCenter);
+      card2Group.position.y -= totalOffset * 2;
 
-      const numSlices = 10;
-      sliceMeshes.forEach(slice => {
-        // Stagger de baixo para cima (índice 0 entra primeiro, índice 9 por último)
-        const delay = (slice.index / numSlices) * 0.25;
-        
-        // Mapeamento de progresso local (inicia mais tarde em tZoom = 0.38, dura 0.30 de scroll)
-        const localProgress = Math.max(0, Math.min((tZoom - 0.38 - delay) / 0.30, 1));
-        const ease = localProgress * localProgress * (3 - 2 * localProgress); // smoothstep
-        
-        // Deslocamento X da esquerda para a direita (inicia em -3.5 e vai para 0)
-        const slideX = -3.5 * (1 - ease);
-        
-        slice.mesh.position.x = slideX;
-        slice.mesh.material.uniforms.uOpacity.value = ease;
-        slice.mesh.material.uniforms.uMouseTilt.value.set(mouseTiltCurrent.x, mouseTiltCurrent.y);
-      });
+      // Calculate stagger progress dynamically
+      const scrollGapPixels = totalOffset / worldUnitsPerPixel;
+      
+      function getEaseProgress(baseScrollOffset) {
+         const zs = zoomStart + baseScrollOffset;
+         const ze = zoomEnd + baseScrollOffset;
+         return Math.max(0, Math.min((scrollCurrent - zs) / (ze - zs), 1));
+      }
+
+      const tZoom0 = tZoom;
+      const tZoom1 = getEaseProgress(scrollGapPixels);
+      const tZoom2 = getEaseProgress(scrollGapPixels * 2);
+
+      function updateSlices(slicesArr, progress) {
+        const numSlices = 10;
+        slicesArr.forEach(slice => {
+          const delay = (slice.index / numSlices) * 0.25;
+          const localProgress = Math.max(0, Math.min((progress - 0.38 - delay) / 0.30, 1));
+          const ease = localProgress * localProgress * (3 - 2 * localProgress); // smoothstep
+          const slideX = -3.5 * (1 - ease);
+          
+          slice.mesh.position.x = slideX;
+          slice.mesh.material.uniforms.uOpacity.value = ease;
+          slice.mesh.material.uniforms.uMouseTilt.value.set(mouseTiltCurrent.x, mouseTiltCurrent.y);
+        });
+      }
+
+      updateSlices(sliceMeshes, tZoom0);
+      updateSlices(card1Slices, tZoom1);
+      updateSlices(card2Slices, tZoom2);
       
       // Rotação sutil de inclinação interativa (mouse tilt) de todo o grupo em 3D
       imageGroup.rotation.y = mouseTiltCurrent.x * 0.12;
       imageGroup.rotation.x = -mouseTiltCurrent.y * 0.12;
 
+      card1Group.rotation.y = mouseTiltCurrent.x * 0.12;
+      card1Group.rotation.x = -mouseTiltCurrent.y * 0.12;
+
+      card2Group.rotation.y = mouseTiltCurrent.x * 0.12;
+      card2Group.rotation.x = -mouseTiltCurrent.y * 0.12;
+
       // Update the HTML signature overlay so it matches the 3D tilt of the image
       const sigOverlay = document.getElementById('signature-overlay');
       if (sigOverlay && (signatureVisible || signatureAnimating)) {
-        if (tZoom < 0.95) {
+        if (tZoom0 < 0.95) {
           const paths = document.querySelectorAll('.sig-path');
           gsap.killTweensOf(sigOverlay);
           gsap.killTweensOf(paths);
@@ -1619,7 +1852,10 @@ function animate() {
           const currentDistance = camera.position.z - (-6.0);
           const distScale = currentDistance > 0.01 ? baseDistance / currentDistance : 1000;
           const yOffsetPixels = -extraScroll; // Move UP in pixels to match 3D scroll
-          sigOverlay.style.transform = `translate(-50%, calc(-50% + ${yOffsetPixels}px)) perspective(1000px) scale(${distScale}) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+          
+          // O scale do HTML deve acompanhar o scale do grupo 3D no mobile
+          const finalSigScale = distScale * currentScale;
+          sigOverlay.style.transform = `translate(-50%, calc(-50% + ${yOffsetPixels}px)) perspective(1000px) scale(${finalSigScale}) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
         }
       }
     }
