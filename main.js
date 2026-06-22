@@ -82,13 +82,13 @@ const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPo
 // ── Renderer (best practices from guide) ─────────────────────────────
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: !isMobileDevice, // Desligado no mobile para máxima performance, ligado no desktop
+  antialias: true, // Reativado para remover o serrilhado das bordas
   alpha: true, // Allow HTML background to show
   powerPreference: 'high-performance',
 })
 
-// Pixel ratio: Desktop usa alta resolução (até 2x), Mobile fica limitado a 1.0 para manter 60fps
-renderer.setPixelRatio(isMobileDevice ? 1.0 : Math.min(window.devicePixelRatio, 2))
+// Pixel ratio: Desktop alta resolução, Mobile num meio-termo (1.25) que tira o pixelado mas é mais leve que Retina 2x/3x
+renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.25) : Math.min(window.devicePixelRatio, 2))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
