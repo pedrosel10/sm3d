@@ -80,18 +80,19 @@ scene.background = null // Transparent so HTML background shows through
 // ── Renderer (best practices from guide) ─────────────────────────────
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: true,
+  antialias: false, // Desabilitado para performance
   alpha: true, // Allow HTML background to show
   powerPreference: 'high-performance',
 })
 const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
+// PixelRatio MUITO BAIXO para teste de performance brutal
+renderer.setPixelRatio(isMobileDevice ? 0.8 : 1.0)
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
 renderer.outputColorSpace = THREE.SRGBColorSpace
-renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFShadowMap
+renderer.shadowMap.enabled = false // Sombras desabilitadas para performance
+renderer.shadowMap.type = THREE.BasicShadowMap
 renderer.shadowMap.autoUpdate = false
 
 // ── Camera (fallback — GLB camera overrides) ─────────────────────────
