@@ -1958,239 +1958,9 @@ function updateResponsiveCache() {
 window.addEventListener('resize', updateResponsiveCache);
 updateResponsiveCache();
 
-// ── GUI Control Panel Logic ──────────────────────────────────────────
-function setupGUI() {
-  const guiToggle = document.getElementById('gui-toggle')
-  const guiPanel = document.getElementById('gui-panel')
-  if (guiToggle && guiPanel) {
-    guiToggle.addEventListener('click', () => {
-      guiPanel.classList.toggle('gui-collapsed')
-    })
-  }
-
-  // --- DUAL STATE SYSTEM ---
-  window.guiInputsRegistry = [];
-  function getScreenMode() { 
-     return window.innerWidth < 768 ? 'mobile' : 'desktop'; 
-  }
-  window.activeGUIState = getScreenMode();
-  window.guiSettings = { desktop: {}, mobile: {} };
-
-  function updateModeButtons() {
-    const dBtn = document.getElementById('gui-mode-desktop');
-    const mBtn = document.getElementById('gui-mode-mobile');
-    if(dBtn && mBtn) {
-      if(activeGUIState === 'desktop') { dBtn.classList.add('active'); mBtn.classList.remove('active'); }
-      else { mBtn.classList.add('active'); dBtn.classList.remove('active'); }
-    }
-  }
-
-  const dBtn = document.getElementById('gui-mode-desktop');
-  const mBtn = document.getElementById('gui-mode-mobile');
-  if(dBtn) dBtn.addEventListener('click', () => { 
-     activeGUIState = 'desktop'; 
-          updateModeButtons(); 
-     applySettingsState(guiSettings.desktop); 
-     
-  });
-  if(mBtn) mBtn.addEventListener('click', () => { 
-     activeGUIState = 'mobile'; 
-          updateModeButtons(); 
-     applySettingsState(guiSettings.mobile); 
-     
-  });
-
-  function applySettingsState(s) {
-    guiInputsRegistry.forEach(item => {
-       const el = document.getElementById(item.id);
-       const disp = item.dispId ? document.getElementById(item.dispId) : null;
-       if (el && s[item.id] !== undefined) {
-          if (item.type === 'checkbox') el.checked = s[item.id];
-          else el.value = s[item.id];
-          if (disp && item.format) disp.innerText = item.format(s[item.id]);
-          item.callback(s[item.id]);
-       }
-    });
-  }
-
-  window.addEventListener('resize', () => {
-     const screenMode = getScreenMode();
-     if (window._lastScreenMode !== screenMode) {
-       window._lastScreenMode = screenMode;
-       // Switch actual visual state AND gui toggle automatically
-       activeGUIState = screenMode;
-       updateModeButtons();
-       applySettingsState(guiSettings[screenMode]);
-     }
-  });
-  window._lastScreenMode = getScreenMode();
-
-  function registerInput(id, dispId, type, callback, format) {
-    guiInputsRegistry.push({ id, dispId, callback, format, type });
-  }
-
-  function handleInputEvent(id, dispId, type, e, callback, format) {
-    let val = type === 'checkbox' ? e.target.checked : (type === 'number' || type === 'range' ? Number(e.target.value) : e.target.value);
-    if (dispId) {
-      const disp = document.getElementById(dispId);
-      if (disp && format) disp.innerText = format(val);
-    }
-    guiSettings[activeGUIState][id] = val;
-    if (activeGUIState === getScreenMode()) {
-      callback(val);
-    }
-  }
-
-  function bindRange(id, dispId, callback, format = (v) => v.toFixed(2)) {
-    registerInput(id, dispId, 'range', callback, format);
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', (e) => handleInputEvent(id, dispId, 'range', e, callback, format));
-  }
-
-  function bindColor(id, callback) {
-    registerInput(id, null, 'color', callback, null);
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', (e) => handleInputEvent(id, null, 'color', e, callback, null));
-  }
-
-  function bindCheckbox(id, callback) {
-    registerInput(id, null, 'checkbox', callback, null);
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('change', (e) => handleInputEvent(id, null, 'checkbox', e, callback, null));
-  }
-
-  function bindSelect(id, callback) {
-    registerInput(id, null, 'select', callback, null);
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('change', (e) => handleInputEvent(id, null, 'select', e, callback, null));
-  }
-
-  function bindCssVarSlider(id, dispId, cssVar, suffix = '') {
-    const updateText = (val) => {
-      document.documentElement.style.setProperty(cssVar, `${val}${suffix}`);
-      if (typeof heroParticleText !== 'undefined' && heroParticleText) {
-        heroParticleText.setup(true);
-      }
-    };
-    registerInput(id, dispId, 'range', updateText, (v) => v.toFixed(2));
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', (e) => handleInputEvent(id, dispId, 'range', e, updateText, (v) => v.toFixed(2)));
-  }
-
-  // --- MATERIAL SETTINGS ---
-  bindRange('val-metalness', 'disp-metalness', (val) => { logoMaterials.forEach(mat => mat.metalness = val); })
-  bindRange('val-roughness', 'disp-roughness', (val) => { logoMaterials.forEach(mat => mat.roughness = val); })
-  
-  bindColor('val-color', (val) => { logoMaterials.forEach(mat => mat.color.set(val)); });
-  bindColor('val-emissive', (val) => { logoMaterials.forEach(mat => { if(mat.emissive) mat.emissive.set(val); }); });
-  
-  bindRange('val-normal', 'disp-normal', (val) => { logoMaterials.forEach(mat => { if(mat.normalScale) mat.normalScale.set(val, val); }); })
-  bindRange('val-clearcoat', 'disp-clearcoat', (val) => { logoMaterials.forEach(mat => mat.clearcoat = val); })
-  bindRange('val-clearcoat-rough', 'disp-clearcoat-rough', (val) => { logoMaterials.forEach(mat => mat.clearcoatRoughness = val); })
-
-  // --- LIGHTING SETTINGS ---
-  bindRange('val-exposure', 'disp-exposure', (val) => { renderer.toneMappingExposure = val; })
-  bindRange('val-keylight', 'disp-keylight', (val) => { keyLight.intensity = val; })
-  bindColor('val-keylight-color', (val) => { keyLight.color.set(val) });
-  bindRange('val-light-x', 'disp-light-x', (val) => { keyLight.position.x = val; })
-  bindRange('val-light-y', 'disp-light-y', (val) => { keyLight.position.y = val; })
-  bindRange('val-light-z', 'disp-light-z', (val) => { keyLight.position.z = val; })
-  bindRange('val-ambient', 'disp-ambient', (val) => { if (activeAmbientLight) activeAmbientLight.intensity = val; })
-  bindColor('val-ambient-color', (val) => { if (activeAmbientLight) activeAmbientLight.color.set(val) });
-
-  bindColor('val-bg-color', (val) => {
-    document.documentElement.style.setProperty('--color-bg', val);
-  });
-
-  bindCheckbox('val-bg-visible', (val) => { if (backgroundMesh) backgroundMesh.visible = val });
-
-  bindRange('val-shadow-floor', 'disp-shadow-floor', (val) => { if (shadowFloorMat) { shadowFloorMat.opacity = val; shadowFloorMat.needsUpdate = true; } })
-  bindRange('val-shadow-wall', 'disp-shadow-wall', (val) => { if (shadowWallMat) { shadowWallMat.opacity = val; shadowWallMat.needsUpdate = true; } })
-
-  const resSelect = document.getElementById('val-shadow-res')
-  if (resSelect && keyLight.shadow.mapSize) resSelect.value = keyLight.shadow.mapSize.x
-  bindSelect('val-shadow-res', (val) => {
-    activeDirectionalLights.forEach(light => {
-      light.shadow.mapSize.set(Number(val), Number(val))
-      if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
-    })
-  });
-
-  bindRange('val-shadow-blur', 'disp-shadow-blur', (val) => { activeDirectionalLights.forEach(light => light.shadow.radius = val); })
-  bindRange('val-shadow-bias', 'disp-shadow-bias', (val) => { activeDirectionalLights.forEach(light => light.shadow.bias = val); }, (v) => v.toFixed(4))
-  bindRange('val-shadow-nbias', 'disp-shadow-nbias', (val) => { activeDirectionalLights.forEach(light => light.shadow.normalBias = val); })
-
-  // --- CAMERA SETTINGS ---
-  bindRange('val-fov', 'disp-fov', (val) => {
-    baseFov = val;
-    const aspect = window.innerWidth / window.innerHeight;
-    camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / aspect) ) * 360 / Math.PI;
-    camera.updateProjectionMatrix();
-  }, (v) => v.toFixed(0))
-
-  bindRange('val-camera-z', 'disp-camera-z', (val) => { cameraBasePos.z = val; })
-
-  // --- INTERACTION ---
-  bindRange('val-tilt', 'disp-tilt', (val) => { TILT_STRENGTH = val; })
-  bindRange('val-shift-x', 'disp-shift-x', (val) => { GEAR_SHIFT_X = val; })
-  bindRange('val-shift-y', 'disp-shift-y', (val) => { GEAR_SHIFT_Y = val; })
-
-  const centerBtn = document.getElementById('gui-btn-center-y')
-  if (centerBtn) {
-    centerBtn.addEventListener('click', () => {
-      GEAR_SHIFT_Y = 0;
-      guiSettings[activeGUIState]['val-shift-y'] = 0;
-      applySettingsState(guiSettings[activeGUIState]);
-    })
-  }
-
-  bindRange('val-spin-speed', 'disp-spin-speed', (val) => { SPIN_SPEED = val; })
-  bindRange('val-spin-limit', 'disp-spin-limit', (val) => { SPIN_LIMIT = val; })
-
-  bindSelect('val-axis', (val) => {
-      if (val === 'x') gearRotationAxis.set(1, 0, 0)
-      else if (val === '-x') gearRotationAxis.set(-1, 0, 0)
-      else if (val === 'y') gearRotationAxis.set(0, 1, 0)
-      else if (val === '-y') gearRotationAxis.set(0, -1, 0)
-      else if (val === 'z') gearRotationAxis.set(0, 0, 1)
-      else if (val === '-z') gearRotationAxis.set(0, 0, -1)
-  });
-
-  // --- TEXT SPACING ---
-  bindCssVarSlider('val-font-top', 'disp-font-top', '--hero-font-top', 'rem');
-  bindCssVarSlider('val-font-h1', 'disp-font-h1', '--hero-font-h1', 'rem');
-  bindCssVarSlider('val-font-h2', 'disp-font-h2', '--hero-font-h2', 'rem');
-  bindCssVarSlider('val-pad-top', 'disp-pad-top', '--hero-padding-top', 'rem');
-  bindCssVarSlider('val-mar-top-text', 'disp-mar-top-text', '--hero-top-mt', 'rem');
-  bindCssVarSlider('val-mar-top', 'disp-mar-top', '--hero-top-margin', 'rem');
-  bindCssVarSlider('val-mar-scroll-top', 'disp-mar-scroll-top', '--scroll-mt', 'rem');
-  bindCssVarSlider('val-mar-scroll-bot', 'disp-mar-scroll-bot', '--scroll-mb', 'rem');
-  bindCssVarSlider('val-lh', 'disp-lh', '--hero-title-lh', '');
-  bindCssVarSlider('val-mar-sub', 'disp-mar-sub', '--hero-subtitle-margin', 'rem');
-  bindCssVarSlider('val-sub-width', 'disp-sub-width', '--hero-subtitle-width', 'ch');
-
-  // --- INITIALIZE DUAL STATE ---
-  function extractInitialSettings() {
-    const s = {};
-    guiInputsRegistry.forEach(item => {
-      const el = document.getElementById(item.id);
-      if (el) {
-        if (item.type === 'checkbox') s[item.id] = el.checked;
-        else if (item.type === 'number' || item.type === 'range') s[item.id] = Number(el.value);
-        else s[item.id] = el.value;
-      }
-    });
-    return s;
-  }
-  guiSettings.desktop = extractInitialSettings();
-  
-  // Apply desktop-specific overrides from user JSON
-  Object.assign(guiSettings.desktop, {
+// ── Hardcoded Settings (formerly GUI) ──────────────────────────────────
+const siteSettings = {
+  desktop: {
     'val-metalness': 1,
     'val-roughness': 0.2,
     'val-color': '#001e57',
@@ -2233,12 +2003,8 @@ function setupGUI() {
     'val-sub-width': 63,
     'val-mar-scroll-top': 3,
     'val-mar-scroll-bot': 0
-  });
-
-  guiSettings.mobile = JSON.parse(JSON.stringify(guiSettings.desktop));
-
-  // Apply mobile-specific overrides from user JSON
-  Object.assign(guiSettings.mobile, {
+  },
+  mobile: {
     'val-metalness': 1,
     'val-roughness': 0.2,
     'val-color': '#001e57',
@@ -2281,91 +2047,97 @@ function setupGUI() {
     'val-sub-width': 50,
     'val-mar-scroll-top': 1.5,
     'val-mar-scroll-bot': 4
+  }
+};
+
+window.guiSettings = siteSettings;
+window.activeGUIState = window.innerWidth < 768 ? 'mobile' : 'desktop';
+
+function applySiteSettings() {
+  const mode = window.innerWidth < 768 ? 'mobile' : 'desktop';
+  window.activeGUIState = mode;
+  const s = siteSettings[mode];
+
+  // Material
+  logoMaterials.forEach(mat => {
+    mat.metalness = s['val-metalness'];
+    mat.roughness = s['val-roughness'];
+    mat.color.set(s['val-color']);
+    if(mat.emissive) mat.emissive.set(s['val-emissive']);
+    if(mat.normalScale) mat.normalScale.set(s['val-normal'], s['val-normal']);
+    mat.clearcoat = s['val-clearcoat'];
+    mat.clearcoatRoughness = s['val-clearcoat-rough'];
   });
 
-  updateModeButtons();
-  applySettingsState(guiSettings[getScreenMode()]);
-
-  // --- COPY JSON ---
-  const copyBtn = document.getElementById('gui-copy-btn')
-  if (copyBtn) {
-    copyBtn.addEventListener('click', () => {
-      function formatSettings(s) {
-        return {
-          metalness: s['val-metalness'], roughness: s['val-roughness'],
-          color: s['val-color'], emissiveColor: s['val-emissive'],
-          normalScale: s['val-normal'], clearcoat: s['val-clearcoat'], clearcoatRoughness: s['val-clearcoat-rough'],
-          exposure: s['val-exposure'], keyLightIntensity: s['val-keylight'], keyLightColor: s['val-keylight-color'],
-          lightX: s['val-light-x'], lightY: s['val-light-y'], lightZ: s['val-light-z'],
-          ambientLightIntensity: s['val-ambient'], ambientLightColor: s['val-ambient-color'],
-          backgroundColor: s['val-bg-color'], background3DVisible: s['val-bg-visible'],
-          shadowFloorOpacity: s['val-shadow-floor'], shadowWallOpacity: s['val-shadow-wall'],
-          shadowResolution: s['val-shadow-res'], shadowBlurRadius: s['val-shadow-blur'],
-          shadowBias: s['val-shadow-bias'], shadowNormalBias: s['val-shadow-nbias'],
-          fov: s['val-fov'], cameraZ: s['val-camera-z'], tiltStrength: s['val-tilt'],
-          gearShiftX: s['val-shift-x'], gearShiftY: s['val-shift-y'],
-          spinSpeed: s['val-spin-speed'], spinLimit: s['val-spin-limit'], axis: s['val-axis'],
-          fontTop: s['val-font-top'], fontH1: s['val-font-h1'], fontH2: s['val-font-h2'],
-          padTop: s['val-pad-top'], marginTopText: s['val-mar-top-text'], marginTop: s['val-mar-top'], titleLh: s['val-lh'],
-          marginSub: s['val-mar-sub'], subWidth: s['val-sub-width'],
-          scrollMt: s['val-mar-scroll-top'], scrollMb: s['val-mar-scroll-bot']
-        };
-      }
-      
-      const dsStr = JSON.stringify(formatSettings(guiSettings.desktop), null, 4).replace(/\n/g, '\n  ');
-      const mbStr = JSON.stringify(formatSettings(guiSettings.mobile), null, 4).replace(/\n/g, '\n  ');
-      const text = `Configurações da Logo 3D:\n\`\`\`json\n{\n  "desktop": ${dsStr},\n  "mobile": ${mbStr}\n}\n\`\`\``;
-      
-      navigator.clipboard.writeText(text).then(() => {
-        copyBtn.classList.add('copied')
-        copyBtn.textContent = '✓ Copiado!'
-        setTimeout(() => {
-          copyBtn.classList.remove('copied')
-          copyBtn.textContent = '📋 Copiar Configurações'
-        }, 2000)
-      })
-    })
+  // Lighting
+  renderer.toneMappingExposure = s['val-exposure'];
+  keyLight.intensity = s['val-keylight'];
+  keyLight.color.set(s['val-keylight-color']);
+  keyLight.position.set(s['val-light-x'], s['val-light-y'], s['val-light-z']);
+  if (activeAmbientLight) {
+    activeAmbientLight.intensity = s['val-ambient'];
+    activeAmbientLight.color.set(s['val-ambient-color']);
   }
+  
+  document.documentElement.style.setProperty('--color-bg', s['val-bg-color']);
+  if (backgroundMesh) backgroundMesh.visible = s['val-bg-visible'];
 
-  // --- DRAGGABLE GUI ---
-  const header = document.getElementById('gui-drag-handle');
-  if (header && guiPanel) {
-    let isDragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
+  if (shadowFloorMat) { shadowFloorMat.opacity = s['val-shadow-floor']; shadowFloorMat.needsUpdate = true; }
+  if (shadowWallMat) { shadowWallMat.opacity = s['val-shadow-wall']; shadowWallMat.needsUpdate = true; }
+  
+  activeDirectionalLights.forEach(light => {
+    light.shadow.mapSize.set(Number(s['val-shadow-res']), Number(s['val-shadow-res']));
+    if (light.shadow.map) { light.shadow.map.dispose(); light.shadow.map = null; }
+    light.shadow.radius = s['val-shadow-blur'];
+    light.shadow.bias = s['val-shadow-bias'];
+    light.shadow.normalBias = s['val-shadow-nbias'];
+  });
 
-    header.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      const rect = guiPanel.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
-      guiPanel.style.transition = 'none'; // Disable transition while dragging
-    });
+  // Camera
+  baseFov = s['val-fov'];
+  const aspect = window.innerWidth / window.innerHeight;
+  camera.fov = Math.atan( Math.tan( baseFov * Math.PI / 360 ) * (1.7777 / aspect) ) * 360 / Math.PI;
+  camera.updateProjectionMatrix();
+  cameraBasePos.z = s['val-camera-z'];
+  
+  // Interaction
+  TILT_STRENGTH = s['val-tilt'];
+  GEAR_SHIFT_X = s['val-shift-x'];
+  GEAR_SHIFT_Y = s['val-shift-y'];
+  SPIN_SPEED = s['val-spin-speed'];
+  SPIN_LIMIT = s['val-spin-limit'];
+  
+  const axisMap = {
+    'x': [1,0,0], '-x': [-1,0,0], 'y': [0,1,0], '-y': [0,-1,0], 'z': [0,0,1], '-z': [0,0,-1]
+  };
+  gearRotationAxis.fromArray(axisMap[s['val-axis']]);
 
-    window.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      
-      let x = e.clientX - offsetX;
-      let y = e.clientY - offsetY;
-      
-      // Prevent dragging completely off screen
-      x = Math.max(0, Math.min(x, window.innerWidth - guiPanel.offsetWidth));
-      y = Math.max(0, Math.min(y, window.innerHeight - 30));
-      
-      guiPanel.style.left = `${x}px`;
-      guiPanel.style.top = `${y}px`;
-      guiPanel.style.bottom = 'auto'; // Release bottom constraint
-      guiPanel.style.transform = 'none'; // Release Y transform if any
-    });
-
-    window.addEventListener('mouseup', () => {
-      isDragging = false;
-      guiPanel.style.transition = 'transform 0.3s ease, background 0.3s ease, left 0.3s ease, top 0.3s ease';
-    });
-  }
-
+  // Text Spacing
+  document.documentElement.style.setProperty('--hero-font-top', `${s['val-font-top']}rem`);
+  document.documentElement.style.setProperty('--hero-font-h1', `${s['val-font-h1']}rem`);
+  document.documentElement.style.setProperty('--hero-font-h2', `${s['val-font-h2']}rem`);
+  document.documentElement.style.setProperty('--hero-padding-top', `${s['val-pad-top']}rem`);
+  document.documentElement.style.setProperty('--hero-top-mt', `${s['val-mar-top-text']}rem`);
+  document.documentElement.style.setProperty('--hero-top-margin', `${s['val-mar-top']}rem`);
+  document.documentElement.style.setProperty('--scroll-mt', `${s['val-mar-scroll-top']}rem`);
+  document.documentElement.style.setProperty('--scroll-mb', `${s['val-mar-scroll-bot']}rem`);
+  document.documentElement.style.setProperty('--hero-title-lh', s['val-lh']);
+  document.documentElement.style.setProperty('--hero-subtitle-margin', `${s['val-mar-sub']}rem`);
+  document.documentElement.style.setProperty('--hero-subtitle-width', `${s['val-sub-width']}ch`);
 }
-setupGUI()
+
+// Inicializar as configurações após um pequeno delay para garantir que os materiais foram criados
+setTimeout(applySiteSettings, 100);
+
+window.addEventListener('resize', () => {
+  const currentMode = window.innerWidth < 768 ? 'mobile' : 'desktop';
+  if (window._lastMode !== currentMode) {
+    window._lastMode = currentMode;
+    applySiteSettings();
+  }
+});
+window._lastMode = window.innerWidth < 768 ? 'mobile' : 'desktop';
+
 
 
 // ── Text Glitch Hover Effect ─────────────────────────────────────────

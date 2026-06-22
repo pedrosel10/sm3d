@@ -3,7 +3,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import GUI from 'lil-gui'
 
 const canvas = document.getElementById('app-canvas')
 const loaderEl = document.getElementById('loader')
@@ -58,17 +57,6 @@ keyLight.shadow.normalBias = 0.04
 keyLight.shadow.radius = 3.5
 scene.add(keyLight)
 
-// ── Menu de Controles (lil-gui) ──────────────────────────────────────
-const gui = new GUI({ title: 'Controles de Iluminação' })
-
-const ambFolder = gui.addFolder('Ambiente (Luz de Preenchimento)')
-ambFolder.add(ambientLight, 'intensity', 0, 5, 0.01).name('Intensidade')
-
-const keyFolder = gui.addFolder('Luz Direcional (Externa)')
-keyFolder.add(keyLight, 'intensity', 0, 10, 0.01).name('Intensidade')
-keyFolder.add(keyLight.position, 'x', -20, 20, 0.1).name('Posição X')
-keyFolder.add(keyLight.position, 'y', -20, 20, 0.1).name('Posição Y')
-keyFolder.add(keyLight.position, 'z', -20, 20, 0.1).name('Posição Z')
 
 // ── Texturas ─────────────────────────────────────────────────────────
 const textureLoader = new THREE.TextureLoader()
@@ -144,8 +132,6 @@ gltfLoader.load(
     
     // Configurar luzes do modelo
     if (glbLights.length > 0) {
-      const glbFolder = gui.addFolder('Luzes Internas do Modelo 3D (GLB)')
-      
       glbLights.forEach((light, i) => {
         const lightName = light.name || light.type
         
@@ -162,39 +148,6 @@ gltfLoader.load(
           if (light.position) light.position.set(-12.6, 0.85593, -2.0999)
           if (light.distance !== undefined) light.distance = 29.7
           if (light.decay !== undefined) light.decay = 1.3
-        }
-
-        // Cria um menu para cada luz que vier embutida
-        const lFolder = glbFolder.addFolder(`${lightName} ${i + 1}`)
-        
-        // Intensidade
-        const maxIntensity = Math.max(light.intensity * 3, 50)
-        lFolder.add(light, 'intensity', 0, maxIntensity, 0.01).name('Intensidade').listen()
-        
-        // Cor
-        const colorParams = { color: light.color.getHex() }
-        lFolder.addColor(colorParams, 'color').name('Cor').onChange((val) => light.color.setHex(val)).listen()
-        
-        // Posição
-        if (!light.isAmbientLight && light.position) {
-          const b = Math.max(Math.abs(light.position.x), Math.abs(light.position.y), Math.abs(light.position.z), 50) * 2;
-          lFolder.add(light.position, 'x', -b, b, 0.1).name('Posição X').listen()
-          lFolder.add(light.position, 'y', -b, b, 0.1).name('Posição Y').listen()
-          lFolder.add(light.position, 'z', -b, b, 0.1).name('Posição Z').listen()
-        }
-
-        // Propriedades Avançadas
-        if (light.distance !== undefined) {
-          lFolder.add(light, 'distance', 0, Math.max(light.distance * 3, 50), 0.1).name('Distância').listen()
-        }
-        if (light.decay !== undefined) {
-          lFolder.add(light, 'decay', 0, 10, 0.1).name('Decaimento (Decay)').listen()
-        }
-        if (light.angle !== undefined) {
-          lFolder.add(light, 'angle', 0, Math.PI / 2, 0.01).name('Ângulo').listen()
-        }
-        if (light.penumbra !== undefined) {
-          lFolder.add(light, 'penumbra', 0, 1, 0.01).name('Penumbra').listen()
         }
 
         if (light.isDirectionalLight || light.isSpotLight) {
