@@ -455,132 +455,12 @@ const imageShaderMaterial = new THREE.ShaderMaterial({
   depthWrite: false
 });
 
-const cardFragmentShader = `
-  varying vec2 vUv;
-  uniform sampler2D uTexture;
-  uniform float uOpacity;
-  uniform float uAberrationStrength;
-  uniform vec2 uMouseTilt;
-
-  // Função para gerar ruído pseudo-aleatório
-  float rand(vec2 co){
-      return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-  }
-
-  void main() {
-    vec2 centerDist = vUv - vec2(0.5);
-    float edgeFactor = dot(centerDist, centerDist);
-    float tiltFactor = length(uMouseTilt);
-    
-    // Aberração cromática que responde às bordas e à inclinação do mouse
-    float shift = uAberrationStrength * (edgeFactor * 1.5 + tiltFactor * 0.7);
-    
-    // Tira o efeito de aberração cromática dos textos (metade superior do canvas)
-    // Limiar reduzido para 0.25 para abranger todas as linhas do texto comprido (que cresceu)
-    if (vUv.y > 0.25) {
-      shift = 0.0;
-    }
-    
-    vec2 uvR = vUv + vec2(shift, 0.0);
-    vec2 uvG = vUv;
-    vec2 uvB = vUv - vec2(shift, 0.0);
-    
-    float r = texture2D(uTexture, clamp(uvR, 0.0, 1.0)).r;
-    float g = texture2D(uTexture, clamp(uvG, 0.0, 1.0)).g;
-    float b = texture2D(uTexture, clamp(uvB, 0.0, 1.0)).b;
-    float a = texture2D(uTexture, uvG).a;
-    
-    vec3 color = vec3(r, g, b);
-    
-    // Efeito 1: Film Grain (Ruído) sutil
-    float noise = (rand(vUv * 2500.0) - 0.5) * 0.06;
-    color += noise;
-    
-    // Efeito 2: Translucidez seletiva (Glassmorphism)
-    // Se a cor for próxima do branco (texto), mantemos opaco. O fundo azul fica translúcido.
-    float textMask = smoothstep(0.2, 0.8, r * g);
-    float finalAlpha = a * uOpacity * mix(0.85, 1.0, textMask);
-    
-    gl_FragColor = vec4(color, finalAlpha);
-  }
-`;
-
-const cardShaderMaterial = new THREE.ShaderMaterial({
-  vertexShader: imageVertexShader,
-  fragmentShader: cardFragmentShader,
-  uniforms: {
-    uTexture: { value: null },
-    uOpacity: { value: 0.0 },
-    uAberrationStrength: { value: 0.024 },
-    uMouseTilt: { value: new THREE.Vector2(0, 0) }
-  },
-  transparent: true,
-  depthWrite: false
-});
-
-// ── Texturas dos Cards 3D geradas dinamicamente via Canvas ────────────────
-function createCardTexture() {
-  const texScale = isMobileDevice ? 1 : 2;
-  const canvas = document.createElement('canvas');
-  // Resolução dinâmica para economizar memória pesada no mobile
-  canvas.width = 1170 * texScale;
-  canvas.height = 1600 * texScale;
-  const ctx = canvas.getContext('2d');
-  
-  // Fundo Azul exato (#0022FF)
-  ctx.fillStyle = '#0022FF';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // -- EFEITO BLUEPRINT (GRID DE ENGENHARIA) --
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-  ctx.lineWidth = 1 * texScale;
-  const gridSize = 60 * texScale;
-  ctx.beginPath();
-  for (let x = 0; x < canvas.width; x += gridSize) {
-    ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
-  }
-  for (let y = 0; y < canvas.height; y += gridSize) {
-    ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
-  }
-  ctx.stroke();
-
-  // Cruzes de registro (estética técnica)
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-  ctx.lineWidth = 2 * texScale;
-  const chSize = 25 * texScale;
-  const margin = 50 * texScale;
-  const positions = [
-    [margin, margin], [canvas.width - margin, margin],
-    [margin, canvas.height - margin], [canvas.width - margin, canvas.height - margin]
-  ];
-  ctx.beginPath();
-  positions.forEach(pos => {
-    ctx.moveTo(pos[0] - chSize/2, pos[1]); ctx.lineTo(pos[0] + chSize/2, pos[1]);
-    ctx.moveTo(pos[0], pos[1] - chSize/2); ctx.lineTo(pos[0], pos[1] + chSize/2);
-  });
-  ctx.stroke();
-  
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.generateMipmaps = true;
-  return texture;
-}
-
-// Inicialização dos grupos da imagem e dos cards tridimensionais
+// Inicialização do grupo da imagem tridimensional
 imageGroup = new THREE.Group();
 imageGroup.position.set(0, 1.5, -6.0); // Posicionado atrás do plano da engrenagem
 scene.add(imageGroup);
 
-card1Group = new THREE.Group();
-card1Group.position.set(0, 1.5, -6.0);
-scene.add(card1Group);
-
-card2Group = new THREE.Group();
-card2Group.position.set(0, 1.5, -6.0);
-scene.add(card2Group);
-
-function buildGroupSlices(group, slicesArray, texture, isCard = false) {
+function buildGroupSlices(group, slicesArray, texture) {
   // Construir a malha base com escala 1.0. 
   // O dimensionamento responsivo exato (ex: 330px no mobile) será feito via .scale no loop animate()
   const imgScale = 1.0;
@@ -600,7 +480,7 @@ function buildGroupSlices(group, slicesArray, texture, isCard = false) {
     }
     geom.attributes.uv.needsUpdate = true;
     
-    const mat = isCard ? cardShaderMaterial.clone() : imageShaderMaterial.clone();
+    const mat = imageShaderMaterial.clone();
     mat.uniforms.uTexture.value = texture;
     
     const mesh = new THREE.Mesh(geom, mat);
@@ -615,19 +495,6 @@ function buildGroupSlices(group, slicesArray, texture, isCard = false) {
     });
   }
 }
-
-// Criar texturas e grupos para os dois cards
-const card1Texture = createCardTexture();
-if (renderer.capabilities.getMaxAnisotropy) {
-  card1Texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-}
-buildGroupSlices(card1Group, card1Slices, card1Texture, true);
-
-const card2Texture = createCardTexture();
-if (renderer.capabilities.getMaxAnisotropy) {
-  card2Texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-}
-buildGroupSlices(card2Group, card2Slices, card2Texture, true);
 
 const imageTexture = textureLoader.load(
   './foto_rodrigo_1.webp',
@@ -1739,19 +1606,11 @@ function animate() {
       }
       
       imageGroup.scale.setScalar(currentScale);
-      card1Group.scale.setScalar(currentScale);
-      card2Group.scale.setScalar(currentScale);
       
-      // Offset dimensions
+      // Offset dimensions (used for calculating total scrolling offset for the single image)
       const cardHeight = 1.6 * currentScale;
       const gap = 0.4 * currentScale;
       const totalOffset = cardHeight + gap;
-      
-      card1Group.position.copy(targetCenter);
-      card1Group.position.y -= totalOffset;
-      
-      card2Group.position.copy(targetCenter);
-      card2Group.position.y -= totalOffset * 2;
 
       // Calculate stagger progress dynamically
       const scrollGapPixels = totalOffset / worldUnitsPerPixel;
@@ -1787,91 +1646,6 @@ function animate() {
       // Rotação sutil de inclinação interativa (mouse tilt) de todo o grupo em 3D
       imageGroup.rotation.y = mouseTiltCurrent.x * 0.12;
       imageGroup.rotation.x = -mouseTiltCurrent.y * 0.12;
-
-      card1Group.rotation.y = mouseTiltCurrent.x * 0.12;
-      card1Group.rotation.x = -mouseTiltCurrent.y * 0.12;
-
-      card2Group.rotation.y = mouseTiltCurrent.x * 0.12;
-      card2Group.rotation.x = -mouseTiltCurrent.y * 0.12;
-
-      // Sincronizar os textos HTML dos cards por cima dos cards 3D
-      const htmlC1 = document.getElementById('html-card-1');
-      const htmlC2 = document.getElementById('html-card-2');
-      
-      if (htmlC1 && htmlC2) {
-        // Calcular o tamanho exato do card em pixels na tela
-        const htmlCardWidth = (1.17 * currentScale) / worldUnitsPerPixel;
-        const htmlCardHeight = (1.6 * currentScale) / worldUnitsPerPixel;
-        
-        const getScreenCoords = (worldPos) => {
-          const projected = worldPos.clone().project(camera);
-          return {
-            x: (projected.x * 0.5 + 0.5) * window.innerWidth,
-            y: -(projected.y * 0.5 - 0.5) * window.innerHeight
-          };
-        };
-        
-        const c1Coords = getScreenCoords(card1Group.position);
-        const c2Coords = getScreenCoords(card2Group.position);
-
-        // Calcular a opacidade baseada no progresso (tZoom1 e tZoom2)
-        const easeHTML1 = Math.max(0, Math.min((tZoom1 - 0.38) / 0.40, 1));
-        const easeHTML2 = Math.max(0, Math.min((tZoom2 - 0.38) / 0.40, 1));
-        
-        const smooth1 = easeHTML1 * easeHTML1 * (3 - 2 * easeHTML1);
-        const smooth2 = easeHTML2 * easeHTML2 * (3 - 2 * easeHTML2);
-
-        // Deslizar o HTML junto com a animação de fatias 3D. 
-        // O valor exato em pixels para o slide world de -3.5 unidades:
-        const slideXPx1 = (-3.5 * (1 - smooth1) * currentScale) / worldUnitsPerPixel;
-        const slideXPx2 = (-3.5 * (1 - smooth2) * currentScale) / worldUnitsPerPixel;
-
-        // Perspectiva perfeita para sincronizar o tilt 3D CSS com o ThreeJS
-        const cameraDist = camera.position.z - (-6.0);
-        const perspectivePx = cameraDist / worldUnitsPerPixel;
-
-        // Função para setar todos os estilos de uma vez e garantir 100% de compatibilidade
-        const applyHTMLCardStyles = (htmlCard, width, height, coords, opacity, slideXPx) => {
-          htmlCard.style.width = `${width}px`;
-          htmlCard.style.height = `${height}px`;
-          htmlCard.style.left = `${coords.x - width/2}px`;
-          htmlCard.style.top = `${coords.y - height/2}px`;
-          htmlCard.style.opacity = opacity;
-          htmlCard.style.transform = `perspective(${perspectivePx}px) translate3d(${slideXPx}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
-          
-          // Compatibilidade máxima: definir px exatos para todos os filhos
-          htmlCard.style.padding = `${width * 0.10}px ${width * 0.12}px`;
-          
-          const pTop = htmlCard.querySelector('.c-top');
-          if (pTop) {
-            pTop.style.fontSize = `${width * 0.051}px`;
-            pTop.style.paddingTop = `${width * 0.025}px`;
-          }
-          
-          const divBottom = htmlCard.querySelector('.c-bottom');
-          if (divBottom) {
-            divBottom.style.gap = `${width * 0.03}px`;
-            divBottom.style.paddingBottom = `${width * 0.03}px`;
-          }
-          
-          const spanNum = htmlCard.querySelector('.c-num');
-          if (spanNum) {
-            spanNum.style.fontSize = `${width * 0.29}px`;
-            spanNum.style.marginLeft = `-${width * 0.017}px`;
-          }
-          
-          const spanSub = htmlCard.querySelector('.c-sub');
-          if (spanSub) {
-            spanSub.style.fontSize = `${width * 0.028}px`;
-          }
-        };
-
-        // Aplicar estilos Card 1
-        applyHTMLCardStyles(htmlC1, htmlCardWidth, htmlCardHeight, c1Coords, smooth1, slideXPx1);
-
-        // Aplicar estilos Card 2
-        applyHTMLCardStyles(htmlC2, htmlCardWidth, htmlCardHeight, c2Coords, smooth2, slideXPx2);
-      }
 
       // Update the HTML signature overlay so it matches the 3D tilt of the image
       const sigOverlay = document.getElementById('signature-overlay');
