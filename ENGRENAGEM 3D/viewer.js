@@ -23,8 +23,8 @@ const renderer = new THREE.WebGLRenderer({
 })
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
-// Limitamos o pixelRatio para 2 no máximo, garantindo ótima qualidade no mobile sem crash
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+// Limitamos o pixelRatio para 1.5 no mobile (evita crash, mas é menos embaçado que 1.0)
+renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap // Melhor suavização de sombras
@@ -53,7 +53,7 @@ scene.add(ambientLight)
 const keyLight = new THREE.DirectionalLight(0xffffff, 3.73)
 keyLight.position.set(-2.6, 0.8, 8.2)
 keyLight.castShadow = true
-keyLight.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048) // Sombras ajustadas para evitar crash no iOS
+keyLight.shadow.mapSize.set(isMobileDevice ? 512 : 2048, isMobileDevice ? 512 : 2048) // Sombras reduzidas para evitar crash no iOS
 keyLight.shadow.bias = -0.0026
 keyLight.shadow.normalBias = 0.04
 keyLight.shadow.radius = 3.5
@@ -154,7 +154,7 @@ gltfLoader.load(
 
         if (light.isDirectionalLight || light.isSpotLight) {
           light.castShadow = true
-          light.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048) // Sombras ajustadas para evitar crash no iOS
+          light.shadow.mapSize.set(isMobileDevice ? 512 : 2048, isMobileDevice ? 512 : 2048) // Sombras reduzidas para evitar crash no iOS
           light.shadow.bias = -0.0002
           light.shadow.normalBias = 0.02
           light.shadow.radius = 3.0

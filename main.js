@@ -85,7 +85,7 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'high-performance',
 })
 const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
@@ -165,7 +165,7 @@ scene.add(hemiLight)
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.5)
 keyLight.position.set(-1.5, 3.5, 6)
 keyLight.castShadow = true
-keyLight.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048)
+keyLight.shadow.mapSize.set(isMobileDevice ? 512 : 2048, isMobileDevice ? 512 : 2048)
 keyLight.shadow.camera.near = 0.5
 keyLight.shadow.camera.far = 100
 keyLight.shadow.bias = -0.0026
@@ -782,7 +782,7 @@ gltfLoader.load(
         console.log('💡 GLB light:', child.type, child.name)
         if (child.isDirectionalLight || child.isSpotLight) {
           child.castShadow = true
-          child.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048)
+          child.shadow.mapSize.set(isMobileDevice ? 512 : 2048, isMobileDevice ? 512 : 2048)
           child.shadow.bias = -0.0002
           child.shadow.normalBias = 0.02
           child.shadow.radius = 3.0
@@ -1544,7 +1544,7 @@ function handleResize() {
   
   camera.updateProjectionMatrix()
   renderer.setSize(w, stableHeight)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setPixelRatio(isMobileDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2))
 }
 
 window.addEventListener('resize', handleResize)
