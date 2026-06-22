@@ -77,22 +77,26 @@ let lastTThirdFold = -1;
 const scene = new THREE.Scene()
 scene.background = null // Transparent so HTML background shows through
 
+const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 // ── Renderer (best practices from guide) ─────────────────────────────
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: false, // Desabilitado para performance
+  antialias: !isMobileDevice, // Desligado no mobile para máxima performance, ligado no desktop
   alpha: true, // Allow HTML background to show
   powerPreference: 'high-performance',
 })
-const isMobileDevice = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-// PixelRatio MUITO BAIXO para teste de performance brutal
-renderer.setPixelRatio(isMobileDevice ? 0.8 : 1.0)
+
+// Pixel ratio: Desktop usa alta resolução (até 2x), Mobile fica limitado a 1.0 para manter 60fps
+renderer.setPixelRatio(isMobileDevice ? 1.0 : Math.min(window.devicePixelRatio, 2))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
 renderer.outputColorSpace = THREE.SRGBColorSpace
-renderer.shadowMap.enabled = false // Sombras desabilitadas para performance
-renderer.shadowMap.type = THREE.BasicShadowMap
+
+// Sombras ativadas apenas no desktop
+renderer.shadowMap.enabled = !isMobileDevice 
+renderer.shadowMap.type = isMobileDevice ? THREE.BasicShadowMap : THREE.PCFShadowMap
 renderer.shadowMap.autoUpdate = false
 
 // ── Camera (fallback — GLB camera overrides) ─────────────────────────
