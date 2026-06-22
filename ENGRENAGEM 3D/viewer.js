@@ -23,8 +23,8 @@ const renderer = new THREE.WebGLRenderer({
 })
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
-// Limitamos o pixelRatio para evitar crashes em dispositivos móveis (especialmente iOS)
-renderer.setPixelRatio(isMobileDevice ? 1.0 : Math.min(window.devicePixelRatio, 1.5))
+// Limitamos o pixelRatio para 2 no máximo, garantindo ótima qualidade no mobile sem crash
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap // Melhor suavização de sombras
