@@ -1830,21 +1830,47 @@ function animate() {
         const cameraDist = camera.position.z - (-6.0);
         const perspectivePx = cameraDist / worldUnitsPerPixel;
 
+        // Função para setar todos os estilos de uma vez e garantir 100% de compatibilidade
+        const applyHTMLCardStyles = (htmlCard, width, height, coords, opacity, slideXPx) => {
+          htmlCard.style.width = `${width}px`;
+          htmlCard.style.height = `${height}px`;
+          htmlCard.style.left = `${coords.x - width/2}px`;
+          htmlCard.style.top = `${coords.y - height/2}px`;
+          htmlCard.style.opacity = opacity;
+          htmlCard.style.transform = `perspective(${perspectivePx}px) translate3d(${slideXPx}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+          
+          // Compatibilidade máxima: definir px exatos para todos os filhos
+          htmlCard.style.padding = `${width * 0.10}px ${width * 0.12}px`;
+          
+          const pTop = htmlCard.querySelector('.c-top');
+          if (pTop) {
+            pTop.style.fontSize = `${width * 0.051}px`;
+            pTop.style.paddingTop = `${width * 0.025}px`;
+          }
+          
+          const divBottom = htmlCard.querySelector('.c-bottom');
+          if (divBottom) {
+            divBottom.style.gap = `${width * 0.03}px`;
+            divBottom.style.paddingBottom = `${width * 0.03}px`;
+          }
+          
+          const spanNum = htmlCard.querySelector('.c-num');
+          if (spanNum) {
+            spanNum.style.fontSize = `${width * 0.29}px`;
+            spanNum.style.marginLeft = `-${width * 0.017}px`;
+          }
+          
+          const spanSub = htmlCard.querySelector('.c-sub');
+          if (spanSub) {
+            spanSub.style.fontSize = `${width * 0.028}px`;
+          }
+        };
+
         // Aplicar estilos Card 1
-        htmlC1.style.width = `${htmlCardWidth}px`;
-        htmlC1.style.height = `${htmlCardHeight}px`;
-        htmlC1.style.left = `${c1Coords.x - htmlCardWidth/2}px`;
-        htmlC1.style.top = `${c1Coords.y - htmlCardHeight/2}px`;
-        htmlC1.style.opacity = smooth1;
-        htmlC1.style.transform = `perspective(${perspectivePx}px) translate3d(${slideXPx1}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+        applyHTMLCardStyles(htmlC1, htmlCardWidth, htmlCardHeight, c1Coords, smooth1, slideXPx1);
 
         // Aplicar estilos Card 2
-        htmlC2.style.width = `${htmlCardWidth}px`;
-        htmlC2.style.height = `${htmlCardHeight}px`;
-        htmlC2.style.left = `${c2Coords.x - htmlCardWidth/2}px`;
-        htmlC2.style.top = `${c2Coords.y - htmlCardHeight/2}px`;
-        htmlC2.style.opacity = smooth2;
-        htmlC2.style.transform = `perspective(${perspectivePx}px) translate3d(${slideXPx2}px, 0, 0) rotateX(${-mouseTiltCurrent.y * 0.12}rad) rotateY(${mouseTiltCurrent.x * 0.12}rad)`;
+        applyHTMLCardStyles(htmlC2, htmlCardWidth, htmlCardHeight, c2Coords, smooth2, slideXPx2);
       }
 
       // Update the HTML signature overlay so it matches the 3D tilt of the image
